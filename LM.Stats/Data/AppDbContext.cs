@@ -15,6 +15,17 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // SQL Server specific configuration
+        if (Database.IsSqlServer())
+        {
+            // Configure decimal precision if needed
+            modelBuilder.Entity<Kill>(entity =>
+            {
+                entity.Property(e => e.Might).HasColumnType("decimal(20,0)");
+                entity.Property(e => e.OldMight).HasColumnType("decimal(20,0)");
+            });
+        }
+
         modelBuilder.Entity<Hunt>()
             .HasOne(h => h.Stats)
             .WithMany(s => s.Hunts)

@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using LM.Stats.Data.Extensions;
+using System.Globalization;
 
 namespace LM.Stats.Controllers;
 
@@ -38,10 +40,10 @@ public class HomeController : Controller
         try
         {
             // Get data from sheets
-            var configData = await _sheetsService.GetSheetData("configs");
+            var configData = await _sheetsService.GetSheetData("Configs");
             var huntData = await _sheetsService.GetSheetData("Hunt");
             var killData = await _sheetsService.GetSheetData("Kills");
-            var otherStatsData = await _sheetsService.GetSheetData("Other StatsInfo");
+            var otherStatsData = await _sheetsService.GetSheetData("OtherStats");
             
             // Process data
             var stats = new StatsInfo
@@ -150,22 +152,69 @@ public class HomeController : Controller
             GoalPercentageHunt = row[19].ToString(),
             PointsPurchase = int.Parse(row[21].ToString()),
             GoalPercentagePurchase = row[22].ToString(),
-            FirstHuntTime = DateTime.Parse(row[24].ToString()),
-            LastHuntTime = DateTime.Parse(row[25].ToString())
+            FirstHuntTime = row[24].ToString().ToSafeDateTime(),
+            LastHuntTime = row[25].ToString().ToSafeDateTime()
         }).ToList();
     }
-    
+
     private List<Kill> ProcessKillData(IList<IList<object>> data)
     {
-        // Similar processing for Kill data
-        // Implementation omitted for brevity
-        return new List<Kill>();
+        return data.Skip(1).Select(row => new Kill
+        {
+            IggId = row.ElementAtOrDefault(0)?.ToString().ToSafeLong() ?? 0,
+            Name = row.ElementAtOrDefault(1)?.ToString().Trim() ?? string.Empty,
+            Rank = row.ElementAtOrDefault(2)?.ToString().Trim() ?? string.Empty,
+            Might = row.ElementAtOrDefault(3)?.ToString().Replace(",", "").ToSafeLong() ?? 0,
+            OldMight = row.ElementAtOrDefault(4)?.ToString().Replace(",", "").ToSafeLong() ?? 0,
+            MightDifference = row.ElementAtOrDefault(5)?.ToString().Replace(",", "").ToSafeLong() ?? 0,
+            Kills = row.ElementAtOrDefault(6)?.ToString().Replace(",", "").ToSafeLong() ?? 0,
+            OldKills = row.ElementAtOrDefault(7)?.ToString().Replace(",", "").ToSafeLong() ?? 0,
+            KillsDifference = row.ElementAtOrDefault(8)?.ToString().Replace(",", "").ToSafeLong() ?? 0,
+            OldName = row.Count > 9 ? row[9]?.ToString().Trim() : string.Empty // Safe access
+        }).Where(k => k.IggId != 0)
+          .ToList();
     }
-    
+
     private List<OtherStat> ProcessOtherStatsData(IList<IList<object>> data)
     {
-        // Similar processing for OtherStats data
-        // Implementation omitted for brevity
-        return new List<OtherStat>();
+        return data.Skip(1).Where(row => row.Count >= 7).Select(row => new OtherStat
+        {
+            UserId = row[0].ToString().ToSafeLong() ?? 0,
+            Name = row[1].ToString().Trim(),
+            Might = row[2].ToString()
+                         .Replace(",", "")
+                         .ToSafeLong() ?? 0,
+            Kills = row[3].ToString()
+                         .Replace(",", "")
+                         .ToSafeLong() ?? 0,
+            TroopsKilled = row[4].ToString()
+                               .Replace(",", "")
+                               .ToSafeLong() ?? 0,
+            EnemiesDestroyedMight = row[5].ToString()
+                                        .Replace(",", "")
+                                        .ToSafeLong() ?? 0,
+            TroopsLost = row[6].ToString()
+                              .Replace(",", "")
+                              .ToSafeLong() ?? 0,
+            WinRate = ParseWinRate(row.Count > 7 ? row[7].ToString() : null)
+        }).Where(o => o.UserId != 0) // Filter out invalid rows
+          .ToList();
+    }
+    private static string ParseWinRate(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return "0%";
+
+        // Handle both "76.09%" and "76.09" formats
+        var cleanInput = input.Trim()
+                             .Replace("%", "")
+                             .Replace(",", ".");
+
+        if (decimal.TryParse(cleanInput, NumberStyles.Any, CultureInfo.InvariantCulture, out var rate))
+        {
+            return rate <= 1 ? $"{rate:P2}" : $"{rate / 100m:P2}"; // Handle both 0.76 and 76 formats
+        }
+
+        return "0%";
     }
 }
