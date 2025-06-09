@@ -99,7 +99,7 @@ public static class DataConversionExtensions
         if (value.Contains("%") && decimal.TryParse(value.Replace("%", ""),
             NumberStyles.Any, CultureInfo.InvariantCulture, out result))
         {
-            return result / 100m;
+            return result;/// 100m;
         }
 
         return null;

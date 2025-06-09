@@ -13,13 +13,16 @@ public class DatabaseService
         _context = context;
     }
 
-    public async Task<int> SaveStatsData(StatsInfo stats,
+    public async Task<(int Total, int stateId)> SaveStatsData(StatsInfo stats,
         List<Hunt> hunts,
         List<Kill> kills,
         List<OtherStat> otherStats)
     {
+        int stateId = 0;
         await _context.Stats.AddAsync(stats);
         await _context.SaveChangesAsync();
+
+        stateId = stats.Id;
 
         foreach (var hunt in hunts)
         {
@@ -39,7 +42,7 @@ public class DatabaseService
         }
         await _context.OtherStats.AddRangeAsync(otherStats);
 
-        return await _context.SaveChangesAsync();
+        return (await _context.SaveChangesAsync(), stateId);
     }
 
     public async Task<bool> BackupDatabase(string backupPath)

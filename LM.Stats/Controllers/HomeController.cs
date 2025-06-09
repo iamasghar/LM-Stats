@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using LM.Stats.Data.Extensions;
 using System.Globalization;
+using Microsoft.EntityFrameworkCore;
 
 namespace LM.Stats.Controllers;
 
@@ -16,17 +17,21 @@ public class HomeController : Controller
     private readonly DatabaseService _dbService;
     private readonly GoogleDriveService _driveService;
     private readonly IConfiguration _config;
-    
+    private readonly StatsProcessorService _statsProcessor;
+
     public HomeController(
         GoogleSheetsService sheetsService,
         DatabaseService dbService,
         GoogleDriveService driveService,
-        IConfiguration config)
+        IConfiguration config,
+        StatsProcessorService statsProcessor
+        )
     {
         _sheetsService = sheetsService;
         _dbService = dbService;
         _driveService = driveService;
         _config = config;
+        _statsProcessor = statsProcessor;
     }
     
     public IActionResult Index()
@@ -58,8 +63,8 @@ public class HomeController : Controller
             var otherStats = ProcessOtherStatsData(otherStatsData);
             
             // Save to database
-            await _dbService.SaveStatsData(stats, hunts, kills, otherStats);
-            
+            var stateInfoId = await _dbService.SaveStatsData(stats, hunts, kills, otherStats);
+            await _statsProcessor.ProcessStatsAsync(stateInfoId.stateId);
             return Json(new { success = true, message = "Data imported successfully!" });
         }
         catch (Exception ex)

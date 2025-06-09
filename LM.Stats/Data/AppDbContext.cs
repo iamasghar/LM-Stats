@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Kill> Kills { get; set; }
     public DbSet<OtherStat> OtherStats { get; set; }
     public DbSet<StatsInfo> Stats { get; set; }
+    public DbSet<StatsSummary> StatsSummaries { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

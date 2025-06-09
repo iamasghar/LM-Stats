@@ -1,5 +1,6 @@
 using Google;
 using Google.Apis.Auth.OAuth2;
+using Google.Apis.Http;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 
@@ -29,7 +30,10 @@ public class GoogleSheetsService
                 var service = new SheetsService(new BaseClientService.Initializer()
                 {
                     HttpClientInitializer = credential,
-                    ApplicationName = "LM StatsInfo"
+                    ApplicationName = "LM StatsInfo",
+                    GZipEnabled = true,
+                    // Add this for better error messages
+                    DefaultExponentialBackOffPolicy = ExponentialBackOffPolicy.Exception | ExponentialBackOffPolicy.UnsuccessfulResponse503
                 });
 
                 var range = $"{sheetName}!A:Z";
