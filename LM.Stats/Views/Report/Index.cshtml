@@ -1,0 +1,485 @@
+﻿@{
+    ViewData["Title"] = "Weekly Report";
+}
+
+<div class="container mt-3">
+    <div class="report-controls mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-4">
+                <h6>Select Date Range For Report</h6>
+                <select id="weekDropdown" class="form-select"></select>
+            </div>
+            <div class="col-md-4">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input section-checkbox" type="checkbox" id="showCompletedBoth" checked>
+                    <label class="form-check-label" for="showCompletedBoth">Completed Both</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input section-checkbox" type="checkbox" id="showCompletedOne" checked>
+                    <label class="form-check-label" for="showCompletedOne">Completed One</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input section-checkbox" type="checkbox" id="showFailedBoth" checked>
+                    <label class="form-check-label" for="showFailedBoth">Failed Both</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input section-checkbox" type="checkbox" id="showNewPlayers" checked>
+                    <label class="form-check-label" for="showNewPlayers">New Players</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input section-checkbox" type="checkbox" id="showLeftPlayers" checked>
+                    <label class="form-check-label" for="showLeftPlayers">Left Players</label>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <button class="btn btn-primary me-2" onclick="generateReport()">Generate Report</button>
+                <button id="pdfButton" class="btn btn-danger" onclick="generatePDF()" style="display:none;">Export PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reportTable" class="table-responsive mb-4"></div>
+
+    <div id="topPerformers" class="row g-3 mb-4"></div>
+
+    <div id="heatmapLegend" class="card p-3 mb-4">
+        <div class="d-flex flex-wrap gap-3">
+            <div class="d-flex align-items-center"><span class="heatmap-cell green me-2"></span> Green Zone (Completed Both)</div>
+            <div class="d-flex align-items-center"><span class="heatmap-cell yellow me-2"></span> Yellow Zone (Completed One)</div>
+            <div class="d-flex align-items-center"><span class="heatmap-cell red me-2"></span> Red Zone (Failed Both)</div>
+            <div class="d-flex align-items-center"><span class="heatmap-cell new me-2"></span> New Player</div>
+            <div class="d-flex align-items-center"><span class="heatmap-cell left me-2"></span> Left Player</div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.24/jspdf.plugin.autotable.min.js"></script>
+
+    <script>
+        // Global variables
+        let allData = {};
+        let currentWeek = '';
+        let weeksToShow = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/Report/GetAvailableWeeks')
+                .then(response => response.json())
+                .then(weeks => {
+                    const dropdown = document.getElementById('weekDropdown');
+                    weeks.forEach(week => {
+                        const option = document.createElement('option');
+                        option.value = week.uniqueIdentifier;
+                        option.text = `${formatDate(week.fromDate)} - ${formatDate(week.toDate)}`;
+                        dropdown.appendChild(option);
+                    });
+                    if (weeks.length > 0) {
+                        currentWeek = weeks[0].uniqueIdentifier;
+                    }
+                });
+        });
+
+        // Format date as "01-Jun"
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short' }).replace(',', '');
+        }
+
+        // Generate report
+        function generateReport() {
+            const week = document.getElementById('weekDropdown').value;
+            currentWeek = week;
+
+            fetch(`/Report/GenerateReport?week=${encodeURIComponent(week)}`)
+                .then(response => response.json())
+                .then(data => {
+                    allData = data;
+                    displayReport(data);
+                });
+        }
+
+        // Display report
+        function displayReport(data) {
+            const reportTable = document.getElementById('reportTable');
+            reportTable.innerHTML = '';
+
+            if (!data) return;
+
+            weeksToShow = data.weeksToShow;
+
+            // Filter data based on checkbox selections
+            const showCompletedBoth = document.getElementById('showCompletedBoth').checked;
+            const showCompletedOne = document.getElementById('showCompletedOne').checked;
+            const showFailedBoth = document.getElementById('showFailedBoth').checked;
+            const showNewPlayers = document.getElementById('showNewPlayers').checked;
+            const showLeftPlayers = document.getElementById('showLeftPlayers').checked;
+
+            const filteredCompletedBoth = showCompletedBoth ? data.completedBoth : [];
+            const filteredCompletedOne = showCompletedOne ? data.completedOne : [];
+            const filteredFailedBoth = showFailedBoth ? data.failedBoth : [];
+            const filteredRecentlyJoined = showNewPlayers ? data.recentlyJoined : [];
+            const filteredLeftPlayers = showLeftPlayers ? data.leftPlayers : [];
+
+            // Create table
+            let table = `
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Kills (%)</th>
+                            <th>EDM</th>
+                            <th>Troops Lost</th>
+                            <th>Hunt (%)</th>
+                            <th>Purchase</th>
+                            <th>History</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            let serialNumber = 1;
+
+            // Helper functions
+            const createHistoryCells = (history) => {
+                if (!history || history.length === 0) return '<td></td>';
+
+                let cells = '';
+                weeksToShow.forEach(week => {
+                    const entry = history.find(h => h.week === week.uniqueIdentifier);
+                    const zone = entry ? entry.zone : '';
+                    let colorClass = '';
+
+                    if (zone === 'Green') colorClass = 'green';
+                    else if (zone === 'Yellow') colorClass = 'yellow';
+                    else if (zone === 'Red') colorClass = 'red';
+                    else if (zone === 'New') colorClass = 'new';
+                    else if (zone === 'Left') colorClass = 'left';
+
+                    cells += `<span class="heatmap-cell ${colorClass}" title="${week.fromDate} - ${week.toDate}: ${zone}"></span>`;
+                });
+
+                return `<td class="heatmap-container">${cells}</td>`;
+            };
+
+            const formatPercentage = (value) => {
+                return Math.round(value) + '%';
+            };
+
+            const formatRow = (row, bgColor) => {
+                const formatDiff = (value, percentage, isPercentageGood) => {
+                    if (row.isNewPlayer || row.hasLeft) return '-';
+                    return `${value.toLocaleString()} <span class="${isPercentageGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>`;
+                };
+                const formatDiff2 = (value, percentage, isPercentageGood) => {
+                    return `${value.toLocaleString()} <span class="${isPercentageGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>`;
+                };
+
+                return `
+                    <tr style="background-color: ${bgColor}">
+                        <td>${serialNumber++}</td>
+                        <td>${row.name}</td>
+                        <td>${formatDiff(row.killsDiff, row.killsPercentage, row.killsPercentage >= 100)}</td>
+                        <td>${row.isNewPlayer || row.hasLeft ? '-' : row.edmDiff.toLocaleString()}</td>
+                        <td>${row.isNewPlayer || row.hasLeft ? '-' : row.troopsLostDiff.toLocaleString()}</td>
+                        <td>${formatDiff2(row.huntPoints, row.huntPercentage, row.huntPercentage >= 100)}</td>
+                        <td>${row.purchasePoints.toLocaleString()}</td>
+                        ${createHistoryCells(row.history)}
+                    </tr>`;
+            };
+
+            // Add rows (sorted by killsDiff)
+            filteredCompletedBoth.sort((a, b) => b.killsDiff - a.killsDiff)
+                .forEach(row => table += formatRow(row, '#e6ffed'));
+            filteredCompletedOne.sort((a, b) => b.killsDiff - a.killsDiff)
+                .forEach(row => table += formatRow(row, '#fff9db'));
+            filteredFailedBoth.sort((a, b) => b.killsDiff - a.killsDiff)
+                .forEach(row => table += formatRow(row, '#ffebee'));
+            filteredRecentlyJoined.sort((a, b) => b.killsDiff - a.killsDiff)
+                .forEach(row => table += formatRow(row, '#f0f0f0'));
+            filteredLeftPlayers.sort((a, b) => b.killsDiff - a.killsDiff)
+                .forEach(row => table += formatRow(row, '#e0e0e0'));
+
+            table += `</tbody></table>`;
+            reportTable.innerHTML = table;
+
+            // Show top performers (top 3 in each category)
+            showTopPerformers(data.topPerformers);
+
+            // Show PDF button
+            document.getElementById('pdfButton').style.display = 'inline-block';
+        }
+
+        // Show top performers (3 in each category)
+        function showTopPerformers(topPerformers) {
+            const container = document.getElementById('topPerformers');
+            container.innerHTML = '';
+
+            if (!topPerformers) return;
+
+            const categories = [
+                { title: 'Top Kills', items: topPerformers.topKills, valueField: 'killsDiff', suffix: 'kills' },
+                { title: 'Top Hunt', items: topPerformers.topHunt, valueField: 'huntPoints', suffix: 'pts' },
+                { title: 'Top EDM', items: topPerformers.topEDM, valueField: 'edmDiff', suffix: 'EDM' },
+                { title: 'Top Purchase', items: topPerformers.topPurchase, valueField: 'purchasePoints', suffix: 'pts' }
+            ];
+
+            categories.forEach(category => {
+                const card = document.createElement('div');
+                card.className = 'col-md-6 col-lg-3';
+                card.innerHTML = `
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">${category.title}</h6>
+                        </div>
+                        <div class="card-body">
+                            ${category.items.map((item, index) => `
+                                <div class="d-flex justify-content-between ${index > 0 ? 'mt-2' : ''}">
+                                    <div>
+                                        <span class="badge bg-secondary me-2">${index + 1}</span>
+                                        ${item.name}
+                                    </div>
+                                    <div>
+                                        ${item[category.valueField].toLocaleString()} ${category.suffix}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
+
+        // Generate PDF
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('portrait');
+
+            // Styling configuration
+            const STYLE = {
+                colors: {
+                    green: [40, 167, 69],
+                    yellow: [255, 193, 7],
+                    red: [220, 53, 69],
+                    blue: [23, 162, 184],
+                    gray: [108, 117, 125],
+                    white: [255, 255, 255],
+                    lightGreen: [230, 255, 237],
+                    lightYellow: [255, 249, 219],
+                    lightRed: [255, 235, 238],
+                    lightGray: [240, 240, 240],
+                    cardBg: [240, 240, 240],
+                    legendBg: [245, 245, 245],
+                    border: [220, 220, 220],
+                    textDark: [60, 60, 60],
+                    textMedium: [80, 80, 80],
+                    pcardBg: [103, 150, 243],
+                    cardText: [255, 255, 255]
+                },
+                tableBox: { width: 3, height: 3, radius: 0.7, spacing: 4 },
+                legendBox: { size: 4, radius: 1, textOffset: 5 },
+                card: { width: 88, height: 35, padding: 4, margin: 3 }
+            };
+
+            // Add title with date range
+            const selectedWeek = document.getElementById('weekDropdown').selectedOptions[0].text;
+            doc.setFontSize(14);
+            doc.text(`SxE Weekly Stats Report: ${selectedWeek}`, 14, 10);
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 14);
+
+            // Extract table data from HTML
+            const reportTable = document.getElementById('reportTable').querySelector('table');
+            const headers = Array.from(reportTable.querySelectorAll('thead th')).map(th => th.innerText);
+            const rows = [];
+
+            Array.from(reportTable.querySelectorAll('tbody tr')).forEach(row => {
+                const rowData = Array.from(row.querySelectorAll('td')).map((cell, index) => {
+                    // For the history column, we'll handle it specially
+                    if (index === 7) return cell;
+                    return cell.innerText.replace(/\n/g, ' ').trim();
+                });
+                rows.push(rowData);
+            });
+
+            // Add the table to the PDF
+            doc.autoTable({
+                head: [headers],
+                body: rows,
+                startY: 20,
+                theme: 'grid',
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 1,
+                    overflow: 'linebreak',
+                    textColor: STYLE.colors.textDark,
+                    lineColor: STYLE.colors.border,
+                    lineWidth: 0.1,
+                },
+                headerStyles: {
+                    fontSize: 9,
+                    cellPadding: 2,
+                    fillColor: STYLE.colors.cardBg,
+                    textColor: STYLE.colors.textDark,
+                    lineColor: STYLE.colors.border,
+                    lineWidth: 0.1,
+                },
+                columnStyles: {
+                    0: { cellWidth: 8 },    // #
+                    1: { cellWidth: 25 },   // Name
+                    2: { cellWidth: 30 },   // Kills (%)
+                    3: { cellWidth: 30 },   // EDM
+                    4: { cellWidth: 25 },   // Troops Lost
+                    5: { cellWidth: 20 },   // Hunt (%)
+                    6: { cellWidth: 20 },   // Purchase
+                    7: { cellWidth: 25 }    // History
+                },
+                margin: { top: 15 },
+                didParseCell: (data) => {
+                    if (data.section === 'head') return;
+
+                    const rowIndex = data.row.index;
+                    const completedBothCount = document.getElementById('showCompletedBoth').checked ? allData.completedBoth.length : 0;
+                    const completedOneCount = document.getElementById('showCompletedOne').checked ? allData.completedOne.length : 0;
+                    const failedBothCount = document.getElementById('showFailedBoth').checked ? allData.failedBoth.length : 0;
+
+                    if (rowIndex < completedBothCount) {
+                        data.cell.styles.fillColor = STYLE.colors.lightGreen;
+                    } else if (rowIndex < completedBothCount + completedOneCount) {
+                        data.cell.styles.fillColor = STYLE.colors.lightYellow;
+                    } else if (rowIndex < completedBothCount + completedOneCount + failedBothCount) {
+                        data.cell.styles.fillColor = STYLE.colors.lightRed;
+                    } else {
+                        data.cell.styles.fillColor = STYLE.colors.lightGray;
+                    }
+                },
+                didDrawCell: (data) => {
+                    // Handle history heatmap cells
+                    if (data.column.index === 7 && data.cell.raw && data.cell.raw.querySelectorAll) {
+                        const boxes = Array.from(data.cell.raw.querySelectorAll('span'));
+                        let xPos = data.cell.x + 1;
+                        const yPos = data.cell.y + (data.cell.height - STYLE.tableBox.height) / 2;
+
+                        boxes.forEach(box => {
+                            const colorClass = box.className.includes('green') ? 'green' :
+                                box.className.includes('yellow') ? 'yellow' :
+                                box.className.includes('red') ? 'red' :
+                                box.className.includes('new') ? 'blue' :
+                                box.className.includes('left') ? 'gray' : 'white';
+
+                            doc.setFillColor(...STYLE.colors[colorClass]);
+                            doc.roundedRect(
+                                xPos,
+                                yPos,
+                                STYLE.tableBox.width,
+                                STYLE.tableBox.height,
+                                STYLE.tableBox.radius,
+                                STYLE.tableBox.radius,
+                                'F'
+                            );
+                            xPos += STYLE.tableBox.spacing;
+                        });
+                    }
+                }
+            });
+
+            // Add legend
+            const legendY = doc.lastAutoTable.finalY + (5);
+            doc.setFillColor(...STYLE.colors.legendBg);
+            doc.rect(14, legendY, doc.internal.pageSize.width - 28, 10, 'F');
+            doc.setDrawColor(...STYLE.colors.border);
+            doc.rect(14, legendY, doc.internal.pageSize.width - 28, 10, 'S');
+
+            doc.setFontSize(8);
+            doc.setTextColor(...STYLE.colors.textMedium);
+            doc.text("Goals Legend:", 18, legendY + 6);
+
+            const legendItems = [
+                { color: 'green', label: 'Completed Both' },
+                { color: 'yellow', label: 'Completed One' },
+                { color: 'red', label: 'Failed Both' },
+                { color: 'blue', label: 'New Player' },
+                { color: 'gray', label: 'Left Player' }
+            ];
+
+            let xPos = 40;
+            legendItems.forEach(item => {
+                doc.setFillColor(...STYLE.colors[item.color]);
+                doc.roundedRect(
+                    xPos,
+                    legendY + 3,
+                    STYLE.legendBox.size,
+                    STYLE.legendBox.size,
+                    STYLE.legendBox.radius,
+                    STYLE.legendBox.radius,
+                    'F'
+                );
+
+                doc.setTextColor(...STYLE.colors.textDark);
+                doc.text(item.label, xPos + STYLE.legendBox.textOffset, legendY + 6);
+                xPos += doc.getTextWidth(item.label) + 10;
+            });
+
+
+            // Add top performers section at the bottom
+            if (allData.topPerformers) {
+                let xPos = 15;
+                const startY = doc.lastAutoTable.finalY + 25;
+                doc.setFontSize(10);
+                doc.text('Top Performers', 14, startY);
+
+                const categories = [
+                    { title: 'Top Kills', items: allData.topPerformers.topKills, valueField: 'killsDiff', suffix: 'kills' },
+                    { title: 'Top Hunt', items: allData.topPerformers.topHunt, valueField: 'huntPoints', suffix: 'pts' },
+                    { title: 'Top EDM', items: allData.topPerformers.topEDM, valueField: 'edmDiff', suffix: 'EDM' },
+                    { title: 'Top Purchase', items: allData.topPerformers.topPurchase, valueField: 'purchasePoints', suffix: 'pts' }
+                ];
+
+                let yPos = startY + 5;
+                categories.forEach((category, index) => {
+            // Draw card background
+            doc.setFillColor(...STYLE.colors.pcardBg);
+            doc.roundedRect(
+                xPos,
+                yPos,
+                STYLE.card.width,
+                STYLE.card.height,
+                3,
+                3,
+                'F'
+            );
+
+            // Card title
+            doc.setFontSize(10);
+            doc.setTextColor(...STYLE.colors.cardText);
+            doc.text(category.title, xPos + STYLE.card.padding, yPos + STYLE.card.padding + 5);
+
+            // Card content
+            category.items.forEach((item, itemIndex) => {
+                const itemY = yPos + STYLE.card.padding + 10 + (itemIndex * 6);
+                doc.setFontSize(9);
+                doc.text(`${itemIndex + 1}. ${item.name}`, xPos + STYLE.card.padding + 5, itemY);
+                doc.text(`${item[category.valueField].toLocaleString()} ${category.suffix}`,
+                    xPos + STYLE.card.width - STYLE.card.padding - 5,
+                    itemY,
+                    { align: 'right' });
+            });
+
+            xPos += STYLE.card.width + STYLE.card.margin;
+
+            // Move to next row if needed
+            if (index === 1) {
+                xPos = 15;
+                yPos += STYLE.card.height + STYLE.card.margin;
+            }
+        });
+            }
+            // Save the PDF with date range in filename
+            const dateRange = selectedWeek.replace(/ /g, '_').replace(/-/g, '');
+            doc.save(`SxE_Weekly_Report_${dateRange}.pdf`);
+        }
+    </script>
+}

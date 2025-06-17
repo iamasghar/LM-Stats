@@ -113,6 +113,9 @@ public class StatsProcessorService
                 summary.EDMDifference = 0;
             }
 
+            if(summary.KillsDifference == 0)
+                summary.KillsDifference = kill?.KillsDifference ?? 0;
+
             summary.KillsPercentage = (summary.KillsDifference / killsGoal) * 100;
 
             // Determine Zone
@@ -122,9 +125,9 @@ public class StatsProcessorService
                 summary.Zone = "Left";
             else
                 summary.Zone = CalculateZone(
-                    summary.HuntPercentage >= 100,//95,
-                    summary.PurchasePercentage >= 100,
-                    summary.KillsPercentage >= 100,
+                    summary.HuntPercentage >= 95,//95,
+                    summary.PurchasePercentage >= 95,
+                    summary.KillsPercentage >= 95,
                     (otherStat != null || kill != null),
                     previousStats?.Kills.Any(o => o.IggId == userId) ?? false);
 
@@ -143,7 +146,7 @@ public class StatsProcessorService
     {
         if (!hasCurrentData) return hadPreviousData ? "Left" : "New";
 
-        var goalsMet = (huntGoalMet || purchaseGoalMet) ? 1 : 0;
+        var goalsMet = (huntGoalMet) ? 1 : 0;
         goalsMet += killsGoalMet ? 1 : 0;
 
         return goalsMet switch

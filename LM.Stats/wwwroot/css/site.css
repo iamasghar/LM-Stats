@@ -20,3 +20,137 @@ html {
 body {
   margin-bottom: 60px;
 }
+/* wwwroot/css/site.css */
+.highlight-green {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.highlight-red {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.inline-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+    .inline-form button {
+        white-space: nowrap;
+    }
+
+#reportTable {
+    margin-top: 20px;
+}
+
+    #reportTable table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    #reportTable th, #reportTable td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+
+    #reportTable th {
+        background-color: #f2f2f2;
+    }
+
+.top-performers {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.top-performer-card {
+    flex: 1;
+    min-width: 200px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    padding: 10px;
+    padding-left: 15px;
+    border: 1px solid #dee2e6;
+}
+
+.top-performer-title {
+    font-weight: bold;
+    color: #007bff;
+    margin-bottom: 5px;
+}
+
+.heatmap-cell {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    background-color: #fff;
+    margin: 2px;
+}
+/* Report specific styles */
+.report-controls {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+.heatmap-container {
+    white-space: nowrap;
+}
+
+    .heatmap-cell.green {
+        background-color: #28a745!important;
+    }
+
+    .heatmap-cell.yellow {
+        background-color: #ffc107;
+    }
+
+    .heatmap-cell.red {
+        background-color: #dc3545;
+    }
+
+    .heatmap-cell.new {
+        background-color: #17a2b8;
+    }
+
+    .heatmap-cell.left {
+        background-color: #6c757d;
+    }
+
+.highlight-green {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.highlight-red {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* Top performers cards */
+#topPerformers .card {
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    height: 100%;
+}
+
+#topPerformers .card-header {
+    padding: 0.5rem 1rem;
+}
+
+#topPerformers .card-body {
+    padding: 1rem;
+}
+
+#topPerformers .badge {
+    width: 24px;
+    text-align: center;
+}
