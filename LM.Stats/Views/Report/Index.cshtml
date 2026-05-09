@@ -1,45 +1,163 @@
-﻿@{
+@{
     ViewData["Title"] = "Weekly Report";
 }
 
-<div class="container mt-3">
-    <div class="report-controls mb-4">
-        <div class="row align-items-center">
+<style>
+    .filter-dropdown-menu {
+        max-height: 340px;
+        overflow-y: auto;
+        min-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .filter-chip {
+        display: inline-block;
+        margin-right: 4px;
+        margin-bottom: 2px;
+    }
+    .filter-dropdown-menu .form-check {
+        border-radius: 4px;
+        padding: 2px 4px 2px 1.75rem;
+        transition: box-shadow 0.15s ease;
+    }
+
+    .filter-dropdown-menu .form-check-input {
+        margin-left: -1.25rem;
+    }
+
+    .filter-dropdown-menu .form-check:hover {
+        background-color: transparent !important;
+        box-shadow: inset 0 0 0 1px rgba(13, 110, 253, 0.25);
+    }
+    .report-theme .report-controls {
+        background: #ffffff;
+        border: 1px solid #dbe4f0;
+    }
+
+    .report-theme .filter-toggle-btn {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+    }
+
+    .report-theme .filter-toggle-btn:hover,
+    .report-theme .filter-toggle-btn:focus {
+        background: #f8fafc;
+        border-color: #93c5fd;
+        color: #1e3a8a;
+        box-shadow: none;
+    }
+
+    .report-theme #topPerformers .card-header {
+        background-color: #0d6efd !important;
+        color: #fff !important;
+    }
+</style>
+
+<div class="container mt-3 report-theme">
+    <div class="report-controls mb-4 card p-3">
+        <div class="row g-2 align-items-end">
             <div class="col-md-4">
-                <h6>Select Date Range For Report</h6>
+                <h6 class="mb-1">Report Date Range</h6>
                 <select id="weekDropdown" class="form-select"></select>
             </div>
+
             <div class="col-md-4">
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input section-checkbox" type="checkbox" id="showCompletedBoth" checked>
-                    <label class="form-check-label" for="showCompletedBoth">Completed Both</label>
-                </div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input section-checkbox" type="checkbox" id="showCompletedOne" checked>
-                    <label class="form-check-label" for="showCompletedOne">Completed One</label>
-                </div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input section-checkbox" type="checkbox" id="showFailedBoth" checked>
-                    <label class="form-check-label" for="showFailedBoth">Failed Both</label>
-                </div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input section-checkbox" type="checkbox" id="showNewPlayers" checked>
-                    <label class="form-check-label" for="showNewPlayers">New Players</label>
-                </div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input section-checkbox" type="checkbox" id="showLeftPlayers" checked>
-                    <label class="form-check-label" for="showLeftPlayers">Left Players</label>
+                <h6 class="mb-1">Player Status</h6>
+                <div class="dropdown">
+                    <button id="statusDropdownBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                        Player Status
+                    </button>
+                    <div class="dropdown-menu p-2 w-100 filter-dropdown-menu">
+                        <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".status-filter-item" placeholder="Search..." />
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="statusSelectAll" checked>
+                            <label class="form-check-label" for="statusSelectAll">Select All</label>
+                        </div>
+                        <hr class="my-2" />
+                        <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusCompletedBoth" checked><label class="form-check-label" for="statusCompletedBoth">Completed Both</label></div>
+                        <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusCompletedOne" checked><label class="form-check-label" for="statusCompletedOne">Completed One</label></div>
+                        <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusFailedBoth" checked><label class="form-check-label" for="statusFailedBoth">Failed Both</label></div>
+                        <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusNewPlayers" checked><label class="form-check-label" for="statusNewPlayers">New Players</label></div>
+                        <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusLeftPlayers" checked><label class="form-check-label" for="statusLeftPlayers">Left Players</label></div>
+                    </div>
                 </div>
             </div>
+
+            <div class="col-md-4">
+                <h6 class="mb-1">Report Headers</h6>
+                <div class="dropdown">
+                    <button id="headersDropdownBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                        Report Headers
+                    </button>
+                    <div class="dropdown-menu p-2 w-100 filter-dropdown-menu">
+                        <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".header-filter-item" placeholder="Search..." />
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="headerSelectAll" checked>
+                            <label class="form-check-label" for="headerSelectAll">Select All</label>
+                        </div>
+                        <hr class="my-2" />
+                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerName" checked><label class="form-check-label" for="headerName">Name</label></div>
+                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerKills" checked><label class="form-check-label" for="headerKills">Kills (%)</label></div>
+                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerEDM" checked><label class="form-check-label" for="headerEDM">EDM</label></div>
+                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerTroopsLost" checked><label class="form-check-label" for="headerTroopsLost">Troops Lost</label></div>
+                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHunt" checked><label class="form-check-label" for="headerHunt">Hunt (%)</label></div>
+                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerPurchase" checked><label class="form-check-label" for="headerPurchase">Purchase</label></div>
+                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHistory" checked><label class="form-check-label" for="headerHistory">History</label></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-2 mt-1 align-items-end">
+            <div class="col-md-4">
+                <h6 class="mb-1">Summary Types</h6>
+                <div class="dropdown">
+                    <button id="summaryDropdownBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                        Summary Types
+                    </button>
+                    <div class="dropdown-menu p-2 w-100 filter-dropdown-menu">
+                        <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".summary-filter-item" placeholder="Search..." />
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="summarySelectAll" checked>
+                            <label class="form-check-label" for="summarySelectAll">Select All</label>
+                        </div>
+                        <hr class="my-2" />
+                        <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopKills" data-summary="topKills" checked><label class="form-check-label" for="summaryTopKills">Top Kills</label></div>
+                        <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopHunt" data-summary="topHunt" checked><label class="form-check-label" for="summaryTopHunt">Top Hunt</label></div>
+                        <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopEDM" data-summary="topEDM" checked><label class="form-check-label" for="summaryTopEDM">Top EDM</label></div>
+                        <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopPurchase" data-summary="topPurchase" checked><label class="form-check-label" for="summaryTopPurchase">Top Purchase</label></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <h6 class="mb-1">Players to Ignore</h6>
+                <div class="dropdown">
+                    <button id="ignorePlayersBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                        Ignore Players
+                    </button>
+                    <div class="dropdown-menu p-2 w-100 filter-dropdown-menu" id="ignorePlayersContainer">
+                        <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".ignore-player-item" placeholder="Search players..." />
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="ignoreSelectAll">
+                            <label class="form-check-label" for="ignoreSelectAll">Select All</label>
+                        </div>
+                        <hr class="my-2" />
+                        <div class="text-muted small">Generate report to load players</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="col-md-4 text-end">
-                <button class="btn btn-primary me-2" onclick="generateReport()">Generate Report</button>
-                <button id="pdfButton" class="btn btn-danger" onclick="generatePDF()" style="display:none;">Export PDF</button>
+                <button id="generateReportBtn" class="btn btn-primary me-2" onclick="generateReport()">Generate Report</button>
+                <button id="pdfButton" class="btn btn-danger me-2" onclick="generatePDF()" style="display:none;">Export PDF</button>
+                <button id="resetFiltersBtn" class="btn btn-outline-secondary" onclick="resetFilters()">Reset Filters</button>
             </div>
         </div>
     </div>
 
     <div id="reportTable" class="table-responsive mb-4"></div>
-
     <div id="topPerformers" class="row g-3 mb-4"></div>
 
     <div id="heatmapLegend" class="card p-3 mb-4">
@@ -58,13 +176,54 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.24/jspdf.plugin.autotable.min.js"></script>
 
     <script>
-        // Global variables
         let allData = {};
         let currentWeek = '';
         let weeksToShow = [];
 
-        // Initialize
+        const summaryCategories = [
+            { key: 'topKills', title: 'Top Kills', valueField: 'killsDiff', suffix: 'kills' },
+            { key: 'topHunt', title: 'Top Hunt', valueField: 'huntPoints', suffix: 'pts' },
+            { key: 'topEDM', title: 'Top EDM', valueField: 'edmDiff', suffix: 'EDM' },
+            { key: 'topPurchase', title: 'Top Purchase', valueField: 'purchasePoints', suffix: 'pts' }
+        ];
+
+        const FILTER_STATE_KEY = 'report.filters.v1';
+
+        function getSavedState() {
+            try {
+                return JSON.parse(localStorage.getItem(FILTER_STATE_KEY) || '{}');
+            } catch {
+                return {};
+            }
+        }
+
+        function saveState() {
+            const payload = {
+                week: document.getElementById('weekDropdown')?.value || '',
+                status: Object.fromEntries(Array.from(document.querySelectorAll('.status-filter')).map(cb => [cb.id, cb.checked])),
+                headers: Object.fromEntries(Array.from(document.querySelectorAll('.header-filter')).map(cb => [cb.id, cb.checked])),
+                summary: Object.fromEntries(Array.from(document.querySelectorAll('.summary-filter')).map(cb => [cb.id, cb.checked])),
+                ignoredPlayers: Array.from(document.querySelectorAll('.ignore-player-filter:checked')).map(cb => cb.value)
+            };
+            localStorage.setItem(FILTER_STATE_KEY, JSON.stringify(payload));
+        }
+
+        function applySavedStaticFilters() {
+            const state = getSavedState();
+            const apply = (obj) => {
+                if (!obj) return;
+                Object.entries(obj).forEach(([id, checked]) => {
+                    const el = document.getElementById(id);
+                    if (el) el.checked = !!checked;
+                });
+            };
+            apply(state.status);
+            apply(state.headers);
+            apply(state.summary);
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            applySavedStaticFilters();
             fetch('/Report/GetAvailableWeeks')
                 .then(response => response.json())
                 .then(weeks => {
@@ -75,175 +234,358 @@
                         option.text = `${formatDate(week.fromDate)} - ${formatDate(week.toDate)}`;
                         dropdown.appendChild(option);
                     });
-                    if (weeks.length > 0) {
-                        currentWeek = weeks[0].uniqueIdentifier;
+                    const savedState = getSavedState();
+                    if (savedState.week && dropdown.querySelector("option[value='" + savedState.week + "']") ) {
+                        dropdown.value = savedState.week;
+                    } else if (weeks.length > 0) {
+                        dropdown.value = weeks[0].uniqueIdentifier;
                     }
+                    currentWeek = dropdown.value;
                 });
+
+            setupSelectAll('statusSelectAll', '.status-filter');
+            setupSelectAll('headerSelectAll', '.header-filter');
+            setupSelectAll('summarySelectAll', '.summary-filter');
+            setupSearchHandlers();
+            document.getElementById('weekDropdown')?.addEventListener('change', () => saveState());
+
+            document.querySelectorAll('.status-filter, .header-filter, .summary-filter').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    updateAllDropdownButtonTexts();
+                    saveState();
+                    if (allData && Object.keys(allData).length > 0) displayReport(allData);
+                });
+            });
+
+            updateAllDropdownButtonTexts();
         });
 
-        // Format date as "01-Jun"
+        function setupSearchHandlers() {
+            document.querySelectorAll('.dropdown-search').forEach(input => {
+                input.addEventListener('input', function() {
+                    const targetSelector = input.dataset.target;
+                    const query = (input.value || '').toLowerCase();
+                    document.querySelectorAll(targetSelector).forEach(item => {
+                        const label = (item.textContent || '').toLowerCase();
+                        item.style.display = label.includes(query) ? '' : 'none';
+                    });
+                });
+            });
+        }
+
+        function setupSelectAll(selectAllId, itemSelector) {
+            const selectAll = document.getElementById(selectAllId);
+            if (!selectAll) return;
+
+            selectAll.addEventListener('change', function() {
+                document.querySelectorAll(itemSelector).forEach(cb => cb.checked = selectAll.checked);
+                updateAllDropdownButtonTexts();
+                saveState();
+                if (allData && Object.keys(allData).length > 0) displayReport(allData);
+            });
+
+            document.querySelectorAll(itemSelector).forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const items = Array.from(document.querySelectorAll(itemSelector));
+                    selectAll.checked = items.length > 0 && items.every(i => i.checked);
+                    saveState();
+                });
+            });
+        }
+
+        function updateDropdownButtonText(buttonId, checkedSelector, defaultText) {
+            const btn = document.getElementById(buttonId);
+            if (!btn) return;
+
+            const checked = Array.from(document.querySelectorAll(checkedSelector));
+            const labels = checked.map(c => c.nextElementSibling?.textContent?.trim()).filter(Boolean);
+
+            if (labels.length === 0) {
+                btn.textContent = `${defaultText} (None)`;
+                return;
+            }
+
+            if (labels.length <= 3) {
+                const chips = labels.map(l => `<span class="badge bg-secondary filter-chip">${l}</span>`).join('');
+                btn.innerHTML = chips;
+                return;
+            }
+
+            const chips = labels.slice(0, 3).map(l => `<span class="badge bg-secondary filter-chip">${l}</span>`).join('');
+            btn.innerHTML = `${chips}<span class="badge bg-light text-dark filter-chip">+${labels.length - 3}</span>`;
+        }
+
+        function updateAllDropdownButtonTexts() {
+            updateDropdownButtonText('statusDropdownBtn', '.status-filter:checked', 'Player Status');
+            updateDropdownButtonText('headersDropdownBtn', '.header-filter:checked', 'Report Headers');
+            updateDropdownButtonText('summaryDropdownBtn', '.summary-filter:checked', 'Summary Types');
+            updateDropdownButtonText('ignorePlayersBtn', '.ignore-player-filter:checked', 'Ignore Players');
+        }
+
+        function setButtonLoading(buttonId, isLoading, loadingText, defaultText) {
+            const btn = document.getElementById(buttonId);
+            if (!btn) return;
+
+            if (isLoading) {
+                btn.disabled = true;
+                btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${loadingText}`;
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = defaultText;
+                updateAllDropdownButtonTexts();
+            }
+        }
+
         function formatDate(dateStr) {
             if (!dateStr) return '';
             const date = new Date(dateStr);
             return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short' }).replace(',', '');
         }
 
-        // Generate report
+        function getColumnVisibility() {
+            return {
+                name: document.getElementById('headerName').checked,
+                kills: document.getElementById('headerKills').checked,
+                edm: document.getElementById('headerEDM').checked,
+                troopsLost: document.getElementById('headerTroopsLost').checked,
+                hunt: document.getElementById('headerHunt').checked,
+                purchase: document.getElementById('headerPurchase').checked,
+                history: document.getElementById('headerHistory').checked
+            };
+        }
+
+        function getSelectedSummaryCategories() {
+            const selected = new Set();
+            document.querySelectorAll('.summary-filter:checked').forEach(cb => selected.add(cb.dataset.summary));
+            return summaryCategories.filter(c => selected.has(c.key));
+        }
+
+        function getIgnoredPlayerSet() {
+            const ignored = new Set();
+            document.querySelectorAll('.ignore-player-filter:checked').forEach(cb => ignored.add((cb.value || '').toLowerCase()));
+            return ignored;
+        }
+
+        function populateIgnorePlayers(data) {
+            const persistedIgnored = new Set((getSavedState().ignoredPlayers || []).map(x => (x || '').toLowerCase()));
+            const currentIgnored = new Set([ ...Array.from(getIgnoredPlayerSet()), ...Array.from(persistedIgnored) ]);
+            const names = [
+                ...(data.completedBoth || []),
+                ...(data.completedOne || []),
+                ...(data.failedBoth || []),
+                ...(data.recentlyJoined || []),
+                ...(data.leftPlayers || [])
+            ]
+                .map(x => x.name)
+                .filter(Boolean)
+                .filter((n, i, arr) => arr.findIndex(x => x.toLowerCase() === n.toLowerCase()) === i)
+                .sort((a, b) => a.localeCompare(b));
+
+            const menu = document.getElementById('ignorePlayersContainer');
+            if (!menu) return;
+
+            let html = `
+                <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".ignore-player-item" placeholder="Search players..." />
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="ignoreSelectAll">
+                    <label class="form-check-label" for="ignoreSelectAll">Select All</label>
+                </div>
+                <hr class="my-2" />`;
+
+            if (names.length === 0) {
+                html += `<div class="text-muted small">No players found</div>`;
+            } else {
+                html += names.map((name, idx) => `
+                    <div class="form-check ignore-player-item">
+                        <input class="form-check-input ignore-player-filter" type="checkbox" id="ignorePlayer_${idx}" value="${name}" ${currentIgnored.has(name.toLowerCase()) ? 'checked' : ''}>
+                        <label class="form-check-label" for="ignorePlayer_${idx}">${name}</label>
+                    </div>`).join('');
+            }
+
+            menu.innerHTML = html;
+
+            setupSelectAll('ignoreSelectAll', '.ignore-player-filter');
+            setupSearchHandlers();
+
+
+            document.querySelectorAll('.ignore-player-filter').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    updateAllDropdownButtonTexts();
+                    saveState();
+                    if (allData && Object.keys(allData).length > 0) displayReport(allData);
+                });
+            });
+
+            const selectAllIgnore = document.getElementById('ignoreSelectAll');
+            if (selectAllIgnore) {
+                selectAllIgnore.addEventListener('change', () => {
+                    updateAllDropdownButtonTexts();
+                    saveState();
+                    if (allData && Object.keys(allData).length > 0) displayReport(allData);
+                });
+            }
+
+            updateAllDropdownButtonTexts();
+        }
+
+        function resetFilters() {
+            localStorage.removeItem(FILTER_STATE_KEY);
+
+            document.querySelectorAll('.status-filter, .header-filter, .summary-filter').forEach(cb => cb.checked = true);
+            const statusAll = document.getElementById('statusSelectAll'); if (statusAll) statusAll.checked = true;
+            const headerAll = document.getElementById('headerSelectAll'); if (headerAll) headerAll.checked = true;
+            const summaryAll = document.getElementById('summarySelectAll'); if (summaryAll) summaryAll.checked = true;
+
+            const weekDropdown = document.getElementById('weekDropdown');
+            if (weekDropdown && weekDropdown.options.length > 0) {
+                weekDropdown.selectedIndex = 0;
+                currentWeek = weekDropdown.value;
+            }
+
+            document.querySelectorAll('.ignore-player-filter').forEach(cb => cb.checked = false);
+            const ignoreAll = document.getElementById('ignoreSelectAll'); if (ignoreAll) ignoreAll.checked = false;
+
+            updateAllDropdownButtonTexts();
+            saveState();
+
+            if (allData && Object.keys(allData).length > 0) {
+                populateIgnorePlayers(allData);
+                displayReport(allData);
+            }
+        }
+
         function generateReport() {
             const week = document.getElementById('weekDropdown').value;
             currentWeek = week;
+
+            setButtonLoading('generateReportBtn', true, 'Generating...', 'Generate Report');
 
             fetch(`/Report/GenerateReport?week=${encodeURIComponent(week)}`)
                 .then(response => response.json())
                 .then(data => {
                     allData = data;
+                    populateIgnorePlayers(data);
                     displayReport(data);
-                });
+                })
+                .finally(() => setButtonLoading('generateReportBtn', false, '', 'Generate Report'));
         }
 
-        // Display report
         function displayReport(data) {
             const reportTable = document.getElementById('reportTable');
             reportTable.innerHTML = '';
-
             if (!data) return;
 
             weeksToShow = data.weeksToShow;
+            const col = getColumnVisibility();
+            const ignored = getIgnoredPlayerSet();
 
-            // Filter data based on checkbox selections
-            const showCompletedBoth = document.getElementById('showCompletedBoth').checked;
-            const showCompletedOne = document.getElementById('showCompletedOne').checked;
-            const showFailedBoth = document.getElementById('showFailedBoth').checked;
-            const showNewPlayers = document.getElementById('showNewPlayers').checked;
-            const showLeftPlayers = document.getElementById('showLeftPlayers').checked;
+            const showCompletedBoth = document.getElementById('statusCompletedBoth').checked;
+            const showCompletedOne = document.getElementById('statusCompletedOne').checked;
+            const showFailedBoth = document.getElementById('statusFailedBoth').checked;
+            const showNewPlayers = document.getElementById('statusNewPlayers').checked;
+            const showLeftPlayers = document.getElementById('statusLeftPlayers').checked;
 
-            const filteredCompletedBoth = showCompletedBoth ? data.completedBoth : [];
-            const filteredCompletedOne = showCompletedOne ? data.completedOne : [];
-            const filteredFailedBoth = showFailedBoth ? data.failedBoth : [];
-            const filteredRecentlyJoined = showNewPlayers ? data.recentlyJoined : [];
-            const filteredLeftPlayers = showLeftPlayers ? data.leftPlayers : [];
+            const removeIgnored = rows => rows.filter(r => !ignored.has((r.name || '').toLowerCase()));
 
-            // Create table
+            const filteredCompletedBoth = showCompletedBoth ? removeIgnored(data.completedBoth || []) : [];
+            const filteredCompletedOne = showCompletedOne ? removeIgnored(data.completedOne || []) : [];
+            const filteredFailedBoth = showFailedBoth ? removeIgnored(data.failedBoth || []) : [];
+            const filteredRecentlyJoined = showNewPlayers ? removeIgnored(data.recentlyJoined || []) : [];
+            const filteredLeftPlayers = showLeftPlayers ? removeIgnored(data.leftPlayers || []) : [];
+
             let table = `
                 <table class="table table-bordered table-hover">
                     <thead class="table-light">
                         <tr>
                             <th>#</th>
-                            <th>Name</th>
-                            <th>Kills (%)</th>
-                            <th>EDM</th>
-                            <th>Troops Lost</th>
-                            <th>Hunt (%)</th>
-                            <th>Purchase</th>
-                            <th>History</th>
+                            ${col.name ? '<th>Name</th>' : ''}
+                            ${col.kills ? '<th>Kills (%)</th>' : ''}
+                            ${col.edm ? '<th>EDM</th>' : ''}
+                            ${col.troopsLost ? '<th>Troops Lost</th>' : ''}
+                            ${col.hunt ? '<th>Hunt (%)</th>' : ''}
+                            ${col.purchase ? '<th>Purchase</th>' : ''}
+                            ${col.history ? '<th>History</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>`;
 
             let serialNumber = 1;
 
-            // Helper functions
             const createHistoryCells = (history) => {
                 if (!history || history.length === 0) return '<td></td>';
-
                 let cells = '';
                 weeksToShow.forEach(week => {
                     const entry = history.find(h => h.week === week.uniqueIdentifier);
                     const zone = entry ? entry.zone : '';
                     let colorClass = '';
-
                     if (zone === 'Green') colorClass = 'green';
                     else if (zone === 'Yellow') colorClass = 'yellow';
                     else if (zone === 'Red') colorClass = 'red';
                     else if (zone === 'New') colorClass = 'new';
                     else if (zone === 'Left') colorClass = 'left';
-
                     cells += `<span class="heatmap-cell ${colorClass}" title="${week.fromDate} - ${week.toDate}: ${zone}"></span>`;
                 });
-
                 return `<td class="heatmap-container">${cells}</td>`;
             };
 
-            const formatPercentage = (value) => {
-                return Math.round(value) + '%';
-            };
+            const formatPercentage = (value) => Math.round(value) + '%';
 
             const formatRow = (row, bgColor) => {
-                const formatDiff = (value, percentage, isPercentageGood) => {
+                const formatDiff = (value, percentage, isGood) => {
                     if (row.isNewPlayer || row.hasLeft) return '-';
-                    return `${value.toLocaleString()} <span class="${isPercentageGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>`;
+                    return `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>`;
                 };
-                const formatDiff2 = (value, percentage, isPercentageGood) => {
-                    return `${value.toLocaleString()} <span class="${isPercentageGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>`;
-                };
+                const formatDiff2 = (value, percentage, isGood) => `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>`;
 
                 return `
                     <tr style="background-color: ${bgColor}">
                         <td>${serialNumber++}</td>
-                        <td>${row.name}</td>
-                        <td>${formatDiff(row.killsDiff, row.killsPercentage, row.killsPercentage >= 100)}</td>
-                        <td>${row.isNewPlayer || row.hasLeft ? '-' : row.edmDiff.toLocaleString()}</td>
-                        <td>${row.isNewPlayer || row.hasLeft ? '-' : row.troopsLostDiff.toLocaleString()}</td>
-                        <td>${formatDiff2(row.huntPoints, row.huntPercentage, row.huntPercentage >= 100)}</td>
-                        <td>${row.purchasePoints.toLocaleString()}</td>
-                        ${createHistoryCells(row.history)}
+                        ${col.name ? `<td>${row.name}</td>` : ''}
+                        ${col.kills ? `<td>${formatDiff(row.killsDiff, row.killsPercentage, row.killsPercentage >= 100)}</td>` : ''}
+                        ${col.edm ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : row.edmDiff.toLocaleString()}</td>` : ''}
+                        ${col.troopsLost ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : row.troopsLostDiff.toLocaleString()}</td>` : ''}
+                        ${col.hunt ? `<td>${formatDiff2(row.huntPoints, row.huntPercentage, row.huntPercentage >= 100)}</td>` : ''}
+                        ${col.purchase ? `<td>${row.purchasePoints.toLocaleString()}</td>` : ''}
+                        ${col.history ? `${createHistoryCells(row.history)}` : ''}
                     </tr>`;
             };
 
-            // Add rows (sorted by killsDiff)
-            filteredCompletedBoth.sort((a, b) => b.killsDiff - a.killsDiff)
-                .forEach(row => table += formatRow(row, '#e6ffed'));
-            filteredCompletedOne.sort((a, b) => b.killsDiff - a.killsDiff)
-                .forEach(row => table += formatRow(row, '#fff9db'));
-            filteredFailedBoth.sort((a, b) => b.killsDiff - a.killsDiff)
-                .forEach(row => table += formatRow(row, '#ffebee'));
-            filteredRecentlyJoined.sort((a, b) => b.killsDiff - a.killsDiff)
-                .forEach(row => table += formatRow(row, '#f0f0f0'));
-            filteredLeftPlayers.sort((a, b) => b.killsDiff - a.killsDiff)
-                .forEach(row => table += formatRow(row, '#e0e0e0'));
+            filteredCompletedBoth.sort((a, b) => b.killsDiff - a.killsDiff).forEach(r => table += formatRow(r, '#e6ffed'));
+            filteredCompletedOne.sort((a, b) => b.killsDiff - a.killsDiff).forEach(r => table += formatRow(r, '#fff9db'));
+            filteredFailedBoth.sort((a, b) => b.killsDiff - a.killsDiff).forEach(r => table += formatRow(r, '#ffebee'));
+            filteredRecentlyJoined.sort((a, b) => b.killsDiff - a.killsDiff).forEach(r => table += formatRow(r, '#f0f0f0'));
+            filteredLeftPlayers.sort((a, b) => b.killsDiff - a.killsDiff).forEach(r => table += formatRow(r, '#e0e0e0'));
 
             table += `</tbody></table>`;
             reportTable.innerHTML = table;
 
-            // Show top performers (top 3 in each category)
-            showTopPerformers(data.topPerformers);
-
-            // Show PDF button
+            showTopPerformers(data.topPerformers, ignored);
             document.getElementById('pdfButton').style.display = 'inline-block';
         }
 
-        // Show top performers (3 in each category)
-        function showTopPerformers(topPerformers) {
+        function showTopPerformers(topPerformers, ignoredSet = new Set()) {
             const container = document.getElementById('topPerformers');
             container.innerHTML = '';
-
             if (!topPerformers) return;
 
-            const categories = [
-                { title: 'Top Kills', items: topPerformers.topKills, valueField: 'killsDiff', suffix: 'kills' },
-                { title: 'Top Hunt', items: topPerformers.topHunt, valueField: 'huntPoints', suffix: 'pts' },
-                { title: 'Top EDM', items: topPerformers.topEDM, valueField: 'edmDiff', suffix: 'EDM' },
-                { title: 'Top Purchase', items: topPerformers.topPurchase, valueField: 'purchasePoints', suffix: 'pts' }
-            ];
+            const categories = getSelectedSummaryCategories().map(c => ({
+                title: c.title,
+                items: (topPerformers[c.key] || []).filter(i => !ignoredSet.has((i.name || '').toLowerCase())).slice(0, 3),
+                valueField: c.valueField,
+                suffix: c.suffix
+            }));
 
             categories.forEach(category => {
                 const card = document.createElement('div');
                 card.className = 'col-md-6 col-lg-3';
                 card.innerHTML = `
                     <div class="card h-100">
-                        <div class="card-header bg-primary text-white">
-                            <h6 class="mb-0">${category.title}</h6>
-                        </div>
+                        <div class="card-header bg-primary text-white"><h6 class="mb-0">${category.title}</h6></div>
                         <div class="card-body">
                             ${category.items.map((item, index) => `
                                 <div class="d-flex justify-content-between ${index > 0 ? 'mt-2' : ''}">
-                                    <div>
-                                        <span class="badge bg-secondary me-2">${index + 1}</span>
-                                        ${item.name}
-                                    </div>
-                                    <div>
-                                        ${item[category.valueField].toLocaleString()} ${category.suffix}
-                                    </div>
+                                    <div><span class="badge bg-secondary me-2">${index + 1}</span>${item.name}</div>
+                                    <div>${item[category.valueField].toLocaleString()} ${category.suffix}</div>
                                 </div>
                             `).join('')}
                         </div>
@@ -252,38 +594,28 @@
             });
         }
 
-        // Generate PDF
         function generatePDF() {
+            const reportTable = document.getElementById('reportTable').querySelector('table');
+            if (!reportTable) return;
+
+            setButtonLoading('pdfButton', true, 'Exporting...', 'Export PDF');
+
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('portrait');
+            const ignored = getIgnoredPlayerSet();
 
-            // Styling configuration
             const STYLE = {
                 colors: {
-                    green: [40, 167, 69],
-                    yellow: [255, 193, 7],
-                    red: [220, 53, 69],
-                    blue: [23, 162, 184],
-                    gray: [108, 117, 125],
-                    white: [255, 255, 255],
-                    lightGreen: [230, 255, 237],
-                    lightYellow: [255, 249, 219],
-                    lightRed: [255, 235, 238],
-                    lightGray: [240, 240, 240],
-                    cardBg: [240, 240, 240],
-                    legendBg: [245, 245, 245],
-                    border: [220, 220, 220],
-                    textDark: [60, 60, 60],
-                    textMedium: [80, 80, 80],
-                    pcardBg: [103, 150, 243],
-                    cardText: [255, 255, 255]
+                    green: [40, 167, 69], yellow: [255, 193, 7], red: [220, 53, 69], blue: [23, 162, 184], gray: [108, 117, 125], white: [255, 255, 255],
+                    lightGreen: [230, 255, 237], lightYellow: [255, 249, 219], lightRed: [255, 235, 238], lightGray: [240, 240, 240],
+                    cardBg: [240, 240, 240], legendBg: [245, 245, 245], border: [220, 220, 220], textDark: [60, 60, 60], textMedium: [80, 80, 80],
+                    pcardBg: [103, 150, 243], cardText: [255, 255, 255]
                 },
                 tableBox: { width: 3, height: 3, radius: 0.7, spacing: 4 },
                 legendBox: { size: 4, radius: 1, textOffset: 5 },
                 card: { width: 88, height: 35, padding: 4, margin: 3 }
             };
 
-            // Add title with date range
             const selectedWeek = document.getElementById('weekDropdown').selectedOptions[0].text;
             doc.setFontSize(14);
             doc.text(`DR Weekly Stats Report: ${selectedWeek}`, 14, 10);
@@ -291,103 +623,66 @@
             doc.setTextColor(100, 100, 100);
             doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 14);
 
-            // Extract table data from HTML
-            const reportTable = document.getElementById('reportTable').querySelector('table');
             const headers = Array.from(reportTable.querySelectorAll('thead th')).map(th => th.innerText);
+            const historyColumnIndex = headers.indexOf('History');
             const rows = [];
 
             Array.from(reportTable.querySelectorAll('tbody tr')).forEach(row => {
                 const rowData = Array.from(row.querySelectorAll('td')).map((cell, index) => {
-                    // For the history column, we'll handle it specially
-                    if (index === 7) return cell;
+                    if (index === historyColumnIndex) return cell;
                     return cell.innerText.replace(/\n/g, ' ').trim();
                 });
                 rows.push(rowData);
             });
 
-            // Add the table to the PDF
+            const baseColumnWidths = { '#': 8, 'Name': 25, 'Kills (%)': 30, 'EDM': 30, 'Troops Lost': 25, 'Hunt (%)': 20, 'Purchase': 20, 'History': 25 };
+            const selectedBaseWidths = headers.map(h => baseColumnWidths[h] ?? 20);
+            const totalBaseWidth = selectedBaseWidths.reduce((sum, w) => sum + w, 0);
+            const availableWidth = doc.internal.pageSize.getWidth() - 28;
+            const scale = totalBaseWidth > 0 ? (availableWidth / totalBaseWidth) : 1;
+
+            const columnStyles = {};
+            headers.forEach((header, index) => {
+                const scaledWidth = Math.max(8, (baseColumnWidths[header] ?? 20) * scale);
+                columnStyles[index] = { cellWidth: scaledWidth };
+            });
+
             doc.autoTable({
                 head: [headers],
                 body: rows,
                 startY: 20,
                 theme: 'grid',
-                styles: {
-                    fontSize: 8,
-                    cellPadding: 1,
-                    overflow: 'linebreak',
-                    textColor: STYLE.colors.textDark,
-                    lineColor: STYLE.colors.border,
-                    lineWidth: 0.1,
-                },
-                headerStyles: {
-                    fontSize: 9,
-                    cellPadding: 2,
-                    fillColor: STYLE.colors.cardBg,
-                    textColor: STYLE.colors.textDark,
-                    lineColor: STYLE.colors.border,
-                    lineWidth: 0.1,
-                },
-                columnStyles: {
-                    0: { cellWidth: 8 },    // #
-                    1: { cellWidth: 25 },   // Name
-                    2: { cellWidth: 30 },   // Kills (%)
-                    3: { cellWidth: 30 },   // EDM
-                    4: { cellWidth: 25 },   // Troops Lost
-                    5: { cellWidth: 20 },   // Hunt (%)
-                    6: { cellWidth: 20 },   // Purchase
-                    7: { cellWidth: 25 }    // History
-                },
+                styles: { fontSize: 8, cellPadding: 1, overflow: 'linebreak', textColor: STYLE.colors.textDark, lineColor: STYLE.colors.border, lineWidth: 0.1 },
+                headerStyles: { fontSize: 9, cellPadding: 2, fillColor: STYLE.colors.cardBg, textColor: STYLE.colors.textDark, lineColor: STYLE.colors.border, lineWidth: 0.1 },
+                columnStyles,
                 margin: { top: 15 },
                 didParseCell: (data) => {
                     if (data.section === 'head') return;
-
                     const rowIndex = data.row.index;
-                    const completedBothCount = document.getElementById('showCompletedBoth').checked ? allData.completedBoth.length : 0;
-                    const completedOneCount = document.getElementById('showCompletedOne').checked ? allData.completedOne.length : 0;
-                    const failedBothCount = document.getElementById('showFailedBoth').checked ? allData.failedBoth.length : 0;
-
-                    if (rowIndex < completedBothCount) {
-                        data.cell.styles.fillColor = STYLE.colors.lightGreen;
-                    } else if (rowIndex < completedBothCount + completedOneCount) {
-                        data.cell.styles.fillColor = STYLE.colors.lightYellow;
-                    } else if (rowIndex < completedBothCount + completedOneCount + failedBothCount) {
-                        data.cell.styles.fillColor = STYLE.colors.lightRed;
-                    } else {
-                        data.cell.styles.fillColor = STYLE.colors.lightGray;
-                    }
+                    const completedBothCount = document.getElementById('statusCompletedBoth').checked ? (allData.completedBoth || []).filter(r => !ignored.has((r.name || '').toLowerCase())).length : 0;
+                    const completedOneCount = document.getElementById('statusCompletedOne').checked ? (allData.completedOne || []).filter(r => !ignored.has((r.name || '').toLowerCase())).length : 0;
+                    const failedBothCount = document.getElementById('statusFailedBoth').checked ? (allData.failedBoth || []).filter(r => !ignored.has((r.name || '').toLowerCase())).length : 0;
+                    if (rowIndex < completedBothCount) data.cell.styles.fillColor = STYLE.colors.lightGreen;
+                    else if (rowIndex < completedBothCount + completedOneCount) data.cell.styles.fillColor = STYLE.colors.lightYellow;
+                    else if (rowIndex < completedBothCount + completedOneCount + failedBothCount) data.cell.styles.fillColor = STYLE.colors.lightRed;
+                    else data.cell.styles.fillColor = STYLE.colors.lightGray;
                 },
                 didDrawCell: (data) => {
-                    // Handle history heatmap cells
-                    if (data.column.index === 7 && data.cell.raw && data.cell.raw.querySelectorAll) {
+                    if (historyColumnIndex >= 0 && data.column.index === historyColumnIndex && data.cell.raw && data.cell.raw.querySelectorAll) {
                         const boxes = Array.from(data.cell.raw.querySelectorAll('span'));
                         let xPos = data.cell.x + 1;
                         const yPos = data.cell.y + (data.cell.height - STYLE.tableBox.height) / 2;
-
                         boxes.forEach(box => {
-                            const colorClass = box.className.includes('green') ? 'green' :
-                                box.className.includes('yellow') ? 'yellow' :
-                                box.className.includes('red') ? 'red' :
-                                box.className.includes('new') ? 'blue' :
-                                box.className.includes('left') ? 'gray' : 'white';
-
+                            const colorClass = box.className.includes('green') ? 'green' : box.className.includes('yellow') ? 'yellow' : box.className.includes('red') ? 'red' : box.className.includes('new') ? 'blue' : box.className.includes('left') ? 'gray' : 'white';
                             doc.setFillColor(...STYLE.colors[colorClass]);
-                            doc.roundedRect(
-                                xPos,
-                                yPos,
-                                STYLE.tableBox.width,
-                                STYLE.tableBox.height,
-                                STYLE.tableBox.radius,
-                                STYLE.tableBox.radius,
-                                'F'
-                            );
+                            doc.roundedRect(xPos, yPos, STYLE.tableBox.width, STYLE.tableBox.height, STYLE.tableBox.radius, STYLE.tableBox.radius, 'F');
                             xPos += STYLE.tableBox.spacing;
                         });
                     }
                 }
             });
 
-            // Add legend
-            const legendY = doc.lastAutoTable.finalY + (5);
+            const legendY = doc.lastAutoTable.finalY + 5;
             doc.setFillColor(...STYLE.colors.legendBg);
             doc.rect(14, legendY, doc.internal.pageSize.width - 28, 10, 'F');
             doc.setDrawColor(...STYLE.colors.border);
@@ -395,91 +690,104 @@
 
             doc.setFontSize(8);
             doc.setTextColor(...STYLE.colors.textMedium);
-            doc.text("Goals Legend:", 18, legendY + 6);
+            doc.text('Goals Legend:', 18, legendY + 6);
 
             const legendItems = [
-                { color: 'green', label: 'Completed Both' },
-                { color: 'yellow', label: 'Completed One' },
-                { color: 'red', label: 'Failed Both' },
-                { color: 'blue', label: 'New Player' },
-                { color: 'gray', label: 'Left Player' }
+                { color: 'green', label: 'Completed Both' }, { color: 'yellow', label: 'Completed One' }, { color: 'red', label: 'Failed Both' }, { color: 'blue', label: 'New Player' }, { color: 'gray', label: 'Left Player' }
             ];
 
-            let xPos = 40;
+            let xLegend = 40;
             legendItems.forEach(item => {
                 doc.setFillColor(...STYLE.colors[item.color]);
-                doc.roundedRect(
-                    xPos,
-                    legendY + 3,
-                    STYLE.legendBox.size,
-                    STYLE.legendBox.size,
-                    STYLE.legendBox.radius,
-                    STYLE.legendBox.radius,
-                    'F'
-                );
-
+                doc.roundedRect(xLegend, legendY + 3, STYLE.legendBox.size, STYLE.legendBox.size, STYLE.legendBox.radius, STYLE.legendBox.radius, 'F');
                 doc.setTextColor(...STYLE.colors.textDark);
-                doc.text(item.label, xPos + STYLE.legendBox.textOffset, legendY + 6);
-                xPos += doc.getTextWidth(item.label) + 10;
+                doc.text(item.label, xLegend + STYLE.legendBox.textOffset, legendY + 6);
+                xLegend += doc.getTextWidth(item.label) + 10;
             });
 
-
-            // Add top performers section at the bottom
             if (allData.topPerformers) {
-                let xPos = 15;
-                const startY = doc.lastAutoTable.finalY + 25;
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const cardWidth = STYLE.card.width;
+                const cardHeight = STYLE.card.height;
+                const cardGap = STYLE.card.margin;
+                let yPos = doc.lastAutoTable.finalY + 25;
+                let col = 0;
+
+                const categories = getSelectedSummaryCategories().map(c => ({
+                    title: c.title,
+                    items: (allData.topPerformers[c.key] || []).filter(i => !ignored.has((i.name || '').toLowerCase())).slice(0, 3),
+                    valueField: c.valueField,
+                    suffix: c.suffix
+                }));
+
+                if (yPos + cardHeight > pageHeight - 10) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+
                 doc.setFontSize(10);
-                doc.text('Top Performers', 14, startY);
+                doc.text('Top Performers', 14, yPos - 5);
 
-                const categories = [
-                    { title: 'Top Kills', items: allData.topPerformers.topKills, valueField: 'killsDiff', suffix: 'kills' },
-                    { title: 'Top Hunt', items: allData.topPerformers.topHunt, valueField: 'huntPoints', suffix: 'pts' },
-                    { title: 'Top EDM', items: allData.topPerformers.topEDM, valueField: 'edmDiff', suffix: 'EDM' },
-                    { title: 'Top Purchase', items: allData.topPerformers.topPurchase, valueField: 'purchasePoints', suffix: 'pts' }
-                ];
+                categories.forEach(category => {
+                    if (yPos + cardHeight > pageHeight - 10) {
+                        doc.addPage();
+                        yPos = 20;
+                        col = 0;
+                        doc.setFontSize(10);
+                        doc.text('Top Performers', 14, yPos - 5);
+                    }
 
-                let yPos = startY + 5;
-                categories.forEach((category, index) => {
-            // Draw card background
-            doc.setFillColor(...STYLE.colors.pcardBg);
-            doc.roundedRect(
-                xPos,
-                yPos,
-                STYLE.card.width,
-                STYLE.card.height,
-                3,
-                3,
-                'F'
-            );
+                    const xPos = 15 + (col * (cardWidth + cardGap));
+                    doc.setFillColor(...STYLE.colors.pcardBg);
+                    doc.roundedRect(xPos, yPos, cardWidth, cardHeight, 3, 3, 'F');
 
-            // Card title
-            doc.setFontSize(10);
-            doc.setTextColor(...STYLE.colors.cardText);
-            doc.text(category.title, xPos + STYLE.card.padding, yPos + STYLE.card.padding + 5);
+                    doc.setFontSize(10);
+                    doc.setTextColor(...STYLE.colors.cardText);
+                    doc.text(category.title, xPos + STYLE.card.padding, yPos + STYLE.card.padding + 5);
 
-            // Card content
-            category.items.forEach((item, itemIndex) => {
-                const itemY = yPos + STYLE.card.padding + 10 + (itemIndex * 6);
-                doc.setFontSize(9);
-                doc.text(`${itemIndex + 1}. ${item.name}`, xPos + STYLE.card.padding + 5, itemY);
-                doc.text(`${item[category.valueField].toLocaleString()} ${category.suffix}`,
-                    xPos + STYLE.card.width - STYLE.card.padding - 5,
-                    itemY,
-                    { align: 'right' });
-            });
+                    category.items.forEach((item, itemIndex) => {
+                        const itemY = yPos + STYLE.card.padding + 10 + (itemIndex * 6);
+                        doc.setFontSize(9);
+                        doc.text(`${itemIndex + 1}. ${item.name}`, xPos + STYLE.card.padding + 5, itemY);
+                        doc.text(`${item[category.valueField].toLocaleString()} ${category.suffix}`, xPos + cardWidth - STYLE.card.padding - 5, itemY, { align: 'right' });
+                    });
 
-            xPos += STYLE.card.width + STYLE.card.margin;
-
-            // Move to next row if needed
-            if (index === 1) {
-                xPos = 15;
-                yPos += STYLE.card.height + STYLE.card.margin;
+                    col++;
+                    if (col === 2) {
+                        col = 0;
+                        yPos += cardHeight + cardGap;
+                    }
+                });
             }
-        });
-            }
-            // Save the PDF with date range in filename
+
             const dateRange = selectedWeek.replace(/ /g, '_').replace(/-/g, '');
             doc.save(`DR_Weekly_Report_${dateRange}.pdf`);
+            setButtonLoading('pdfButton', false, '', 'Export PDF');
         }
     </script>
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

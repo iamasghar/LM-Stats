@@ -9,6 +9,10 @@
         }
     });
 
+    const importModal = new bootstrap.Modal(document.getElementById('importModal'));
+    const confirmBackupModal = new bootstrap.Modal(document.getElementById('confirmBackupModal'));
+    const confirmSyncModal = new bootstrap.Modal(document.getElementById('confirmSyncModal'));
+
     $('.daterange').on('apply.daterangepicker', function(ev, picker) {
         $(this).val(picker.startDate.format('YYYY/MM/DD') + ' - ' + picker.endDate.format('YYYY/MM/DD'));
         // Generate unique ID
@@ -23,7 +27,7 @@
 
     // Import button click
     $('#importBtn').click(function() {
-        $('#importModal').modal('show');
+        importModal.show();
     });
 
     // Submit import
@@ -39,6 +43,8 @@
         const toDate = dates[1];
         const uniqueId = $('#uniqueId').val();
 
+        setButtonLoading('#submitImport', true, 'Submitting...', 'Submit');
+
         $.ajax({
             url: '/Home/ImportFromSheets',
             type: 'POST',
@@ -48,68 +54,90 @@
                 uniqueId: uniqueId
             },
             success: function(response) {
-                $('#importModal').modal('hide');
+                importModal.hide();
                 showAlert(response.message, response.success ? 'success' : 'danger');
             },
             error: function() {
                 showAlert('Error occurred while importing Excel data', 'danger');
+            },
+            complete: function() {
+                setButtonLoading('#submitImport', false, '', 'Submit');
             }
         });
     });
 
     // Backup button click
     $('#backupBtn').click(function() {
-        $('#confirmBackupModal').modal('show');
+        confirmBackupModal.show();
     });
 
     // Confirm backup
     $('#confirmBackup').click(function() {
+        setButtonLoading('#confirmBackup', true, 'Processing...', 'Confirm');
+
         $.ajax({
             url: '/Home/BackupToDrive',
             type: 'POST',
             success: function(response) {
-                $('#confirmBackupModal').modal('hide');
+                confirmBackupModal.hide();
                 showAlert(response.message, response.success ? 'success' : 'danger');
             },
             error: function() {
                 showAlert('Error occurred while backing up', 'danger');
+            },
+            complete: function() {
+                setButtonLoading('#confirmBackup', false, '', 'Confirm');
             }
         });
     });
 
     // Sync button click
     $('#syncBtn').click(function() {
-        $('#confirmSyncModal').modal('show');
+        confirmSyncModal.show();
     });
 
     // Confirm sync
     $('#confirmSync').click(function() {
+        setButtonLoading('#confirmSync', true, 'Processing...', 'Confirm');
+
         $.ajax({
             url: '/Home/SyncFromDrive',
             type: 'POST',
             success: function(response) {
-                $('#confirmSyncModal').modal('hide');
+                confirmSyncModal.hide();
                 showAlert(response.message, response.success ? 'success' : 'danger');
             },
             error: function() {
                 showAlert('Error occurred while syncing', 'danger');
+            },
+            complete: function() {
+                setButtonLoading('#confirmSync', false, '', 'Confirm');
             }
         });
     });
 });
 
+function setButtonLoading(selector, isLoading, loadingText, defaultText) {
+    const btn = $(selector);
+    if (isLoading) {
+        btn.prop('disabled', true);
+        btn.html(`<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${loadingText}`);
+    } else {
+        btn.prop('disabled', false);
+        btn.text(defaultText);
+    }
+}
+
 function showAlert(message, type) {
     const alert = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
         ${message}
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-        </button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>`;
     
     $('#alerts').append(alert);
     
     // Auto dismiss after 5 seconds
     setTimeout(function() {
-        $('.alert').alert('close');
+        document.querySelectorAll('#alerts .alert').forEach(a => bootstrap.Alert.getOrCreateInstance(a).close());
     }, 5000);
 }
