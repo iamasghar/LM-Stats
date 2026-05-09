@@ -152,6 +152,7 @@
             <div class="col-md-4 text-end">
                 <button id="generateReportBtn" class="btn btn-primary me-2" onclick="generateReport()">Generate Report</button>
                 <button id="pdfButton" class="btn btn-danger me-2" onclick="generatePDF()" style="display:none;">Export PDF</button>
+                <button id="jpgButton" class="btn btn-warning me-2" onclick="generateJPG()" style="display:none;">Export JPG</button>
                 <button id="resetFiltersBtn" class="btn btn-outline-secondary" onclick="resetFilters()">Reset Filters</button>
             </div>
         </div>
@@ -174,6 +175,7 @@
 @section Scripts {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.24/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <script>
         let allData = {};
@@ -561,6 +563,7 @@
 
             showTopPerformers(data.topPerformers, ignored);
             document.getElementById('pdfButton').style.display = 'inline-block';
+            document.getElementById('jpgButton').style.display = 'inline-block';
         }
 
         function showTopPerformers(topPerformers, ignoredSet = new Set()) {
@@ -592,6 +595,50 @@
                     </div>`;
                 container.appendChild(card);
             });
+        }
+
+        async function generateJPG() {
+            const reportTable = document.getElementById('reportTable').querySelector('table');
+            if (!reportTable) return;
+
+            setButtonLoading('jpgButton', true, 'Exporting...','Export JPG');
+
+            const exportRoot = document.createElement('div');
+            exportRoot.style.background = '#fff';
+            exportRoot.style.padding = '16px';
+            exportRoot.style.width = '1200px';
+            exportRoot.style.position = 'fixed';
+            exportRoot.style.left = '-10000px';
+            exportRoot.style.top = '0';
+
+            const selectedWeek = document.getElementById('weekDropdown').selectedOptions[0]?.text || '';
+            const title = document.createElement('div');
+            title.style.fontSize = '20px';
+            title.style.fontWeight = '600';
+            title.textContent = `@@DR Stats Report: ${selectedWeek}`;
+
+            const subtitle = document.createElement('div');
+            subtitle.style.marginBottom = '12px';
+            subtitle.style.color = '#666';
+            subtitle.style.fontSize = '12px';
+            subtitle.textContent = `Created by: DigTank | Generated on: ${new Date().toLocaleDateString()}`;
+
+            exportRoot.appendChild(title);
+            exportRoot.appendChild(subtitle);
+            exportRoot.appendChild(reportTable.cloneNode(true));
+            exportRoot.appendChild(document.getElementById('heatmapLegend').cloneNode(true));
+            exportRoot.appendChild(document.getElementById('topPerformers').cloneNode(true));
+            document.body.appendChild(exportRoot);
+
+            const canvas = await html2canvas(exportRoot, { scale: 3, backgroundColor: '#ffffff', useCORS: true });
+            const link = document.createElement('a');
+            const dateRange = selectedWeek.replace(/ /g, '_').replace(/-/g, '');
+            link.download = `DR_Weekly_Report_${dateRange}.jpg`;
+            link.href = canvas.toDataURL('image/jpeg', 0.98);
+            link.click();
+
+            document.body.removeChild(exportRoot);
+            setButtonLoading('jpgButton', false, '','Export JPG');
         }
 
         function generatePDF() {
@@ -773,6 +820,10 @@
         }
     </script>
 }
+
+
+
+
 
 
 
