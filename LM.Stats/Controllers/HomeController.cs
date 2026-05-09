@@ -13,21 +13,21 @@ namespace LM.Stats.Controllers;
 
 public class HomeController : Controller
 {
-    private readonly GoogleSheetsService _sheetsService;
+    private readonly ExcelStatsService _excelStatsService;
     private readonly DatabaseService _dbService;
     private readonly GoogleDriveService _driveService;
     private readonly IConfiguration _config;
     private readonly StatsProcessorService _statsProcessor;
 
     public HomeController(
-        GoogleSheetsService sheetsService,
+        ExcelStatsService excelStatsService,
         DatabaseService dbService,
         GoogleDriveService driveService,
         IConfiguration config,
         StatsProcessorService statsProcessor
         )
     {
-        _sheetsService = sheetsService;
+        _excelStatsService = excelStatsService;
         _dbService = dbService;
         _driveService = driveService;
         _config = config;
@@ -44,28 +44,20 @@ public class HomeController : Controller
     {
         try
         {
-            // Get data from sheets
-            var configData = await _sheetsService.GetSheetData("Configs");
-            var huntData = await _sheetsService.GetSheetData("Hunt");
-            var killData = await _sheetsService.GetSheetData("Kills");
-            var otherStatsData = await _sheetsService.GetSheetData("OtherStats");
-            
-            // Process data
             var stats = new StatsInfo
             {
                 FromDate = fromDate,
                 ToDate = toDate,
                 UniqueIdentifier = uniqueId
             };
+
+            var hunts = await _excelStatsService.ReadHuntsAsync();
+            var kills = await _excelStatsService.ReadKillsAsync();
+            var otherStats = new List<OtherStat>();
             
-            var hunts = ProcessHuntData(huntData);
-            var kills = ProcessKillData(killData);
-            var otherStats = ProcessOtherStatsData(otherStatsData);
-            
-            // Save to database
             var stateInfoId = await _dbService.SaveStatsData(stats, hunts, kills, otherStats);
             await _statsProcessor.ProcessStatsAsync(stateInfoId.stateId);
-            return Json(new { success = true, message = "Data imported successfully!" });
+            return Json(new { success = true, message = "Data imported successfully from Excel files!" });
         }
         catch (Exception ex)
         {

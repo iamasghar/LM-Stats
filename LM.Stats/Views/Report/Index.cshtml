@@ -286,7 +286,7 @@
             // Add title with date range
             const selectedWeek = document.getElementById('weekDropdown').selectedOptions[0].text;
             doc.setFontSize(14);
-            doc.text(`TLW Weekly Stats Report: ${selectedWeek}`, 14, 10);
+            doc.text(`DR Weekly Stats Report: ${selectedWeek}`, 14, 10);
             doc.setFontSize(8);
             doc.setTextColor(100, 100, 100);
             doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 14);
@@ -479,7 +479,7 @@
             }
             // Save the PDF with date range in filename
             const dateRange = selectedWeek.replace(/ /g, '_').replace(/-/g, '');
-            doc.save(`TLW_Weekly_Report_${dateRange}.pdf`);
+            doc.save(`DR_Weekly_Report_${dateRange}.pdf`);
         }
     </script>
 }

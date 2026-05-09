@@ -48,7 +48,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 
 // Register services
-builder.Services.AddScoped<GoogleSheetsService>();
+builder.Services.AddScoped<ExcelStatsService>();
 builder.Services.AddScoped<DatabaseService>();
 builder.Services.AddScoped<GoogleDriveService>();
 builder.Services.AddScoped<StatsProcessorService>();

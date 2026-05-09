@@ -52,7 +52,7 @@
                 showAlert(response.message, response.success ? 'success' : 'danger');
             },
             error: function() {
-                showAlert('Error occurred while importing data', 'danger');
+                showAlert('Error occurred while importing Excel data', 'danger');
             }
         });
     });
