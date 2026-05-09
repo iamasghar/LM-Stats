@@ -601,7 +601,10 @@
             setButtonLoading('pdfButton', true, 'Exporting...', 'Export PDF');
 
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('portrait');
+            const rowCount = reportTable.querySelectorAll('tbody tr').length;
+            const summaryRows = Math.ceil(getSelectedSummaryCategories().length / 2);
+            const estimatedHeight = Math.max(297, 0 + (rowCount * 6) + (summaryRows * 45)); // replace value with 0 to add extra hight
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [210, estimatedHeight] });
             const ignored = getIgnoredPlayerSet();
 
             const STYLE = {
@@ -617,11 +620,15 @@
             };
 
             const selectedWeek = document.getElementById('weekDropdown').selectedOptions[0].text;
-            doc.setFontSize(14);
-            doc.text(`DR Weekly Stats Report: ${selectedWeek}`, 14, 10);
-            doc.setFontSize(8);
+            doc.setFontSize(12);
+            doc.text(`@@DR Stats Report: ${selectedWeek}`, 14, 10);
+            doc.setFontSize(9);
             doc.setTextColor(100, 100, 100);
-            doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 14);
+            doc.setFont(undefined, 'italic');
+            doc.text('Created by: DigTank', 14, 14);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Generated on: ${new Date().toLocaleDateString()}`, doc.internal.pageSize.getWidth() - 14, 14, { align: 'right' });
+            doc.setFont(undefined, 'normal');
 
             const headers = Array.from(reportTable.querySelectorAll('thead th')).map(th => th.innerText);
             const historyColumnIndex = headers.indexOf('History');
@@ -710,7 +717,7 @@
                 const cardWidth = STYLE.card.width;
                 const cardHeight = STYLE.card.height;
                 const cardGap = STYLE.card.margin;
-                let yPos = doc.lastAutoTable.finalY + 25;
+                let yPos = doc.lastAutoTable.finalY + 32;
                 let col = 0;
 
                 const categories = getSelectedSummaryCategories().map(c => ({
@@ -766,6 +773,11 @@
         }
     </script>
 }
+
+
+
+
+
 
 
 
