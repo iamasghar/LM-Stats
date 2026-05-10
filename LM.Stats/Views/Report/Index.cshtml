@@ -52,6 +52,15 @@
         background-color: #0d6efd !important;
         color: #fff !important;
     }
+    #reportTable .table tbody td {
+        padding: 0.22rem 0.38rem;
+        line-height: 1.1;
+        vertical-align: middle;
+    }
+
+    #topPerformers .card-body {
+        padding: 0.55rem 0.65rem;
+    }
 </style>
 
 <div class="container mt-3 report-theme">
@@ -151,8 +160,13 @@
 
             <div class="col-md-4 text-end">
                 <button id="generateReportBtn" class="btn btn-primary me-2" onclick="generateReport()">Generate Report</button>
-                <button id="pdfButton" class="btn btn-danger me-2" onclick="generatePDF()" style="display:none;">Export PDF</button>
-                <button id="jpgButton" class="btn btn-warning me-2" onclick="generateJPG()" style="display:none;">Export JPG</button>
+                <div id="exportGroup" class="btn-group me-2" style="display:none;">
+                    <button type="button" class="btn btn-danger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Export as</button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button id="pdfButton" class="dropdown-item" type="button" onclick="generatePDF()">PDF</button></li>
+                        <li><button id="jpgButton" class="dropdown-item" type="button" onclick="generateJPG()">Image (JPG)</button></li>
+                    </ul>
+                </div>
                 <button id="resetFiltersBtn" class="btn btn-outline-secondary" onclick="resetFilters()">Reset Filters</button>
             </div>
         </div>
@@ -562,8 +576,7 @@
             reportTable.innerHTML = table;
 
             showTopPerformers(data.topPerformers, ignored);
-            document.getElementById('pdfButton').style.display = 'inline-block';
-            document.getElementById('jpgButton').style.display = 'inline-block';
+            document.getElementById('exportGroup').style.display = 'inline-flex';
         }
 
         function showTopPerformers(topPerformers, ignoredSet = new Set()) {
@@ -580,7 +593,8 @@
 
             categories.forEach(category => {
                 const card = document.createElement('div');
-                card.className = 'col-md-6 col-lg-3';
+                const count = categories.length || 1;
+                card.className = count <= 2 ? 'col-md-6' : (count === 3 ? 'col-md-4' : 'col-md-6 col-lg-3');
                 card.innerHTML = `
                     <div class="card h-100">
                         <div class="card-header bg-primary text-white"><h6 class="mb-0">${category.title}</h6></div>
@@ -625,7 +639,13 @@
 
             exportRoot.appendChild(title);
             exportRoot.appendChild(subtitle);
-            exportRoot.appendChild(reportTable.cloneNode(true));
+            const tableClone = reportTable.cloneNode(true);
+            tableClone.querySelectorAll('tbody td').forEach(td => {
+                td.style.padding = '0.22rem 0.38rem';
+                td.style.lineHeight = '1.1';
+                td.style.verticalAlign = 'middle';
+            });
+            exportRoot.appendChild(tableClone);
             exportRoot.appendChild(document.getElementById('heatmapLegend').cloneNode(true));
             exportRoot.appendChild(document.getElementById('topPerformers').cloneNode(true));
             document.body.appendChild(exportRoot);
@@ -820,37 +840,3 @@
         }
     </script>
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
