@@ -1,0 +1,211 @@
+@{
+    ViewData["Title"] = "Player Explorer";
+}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" />
+
+<style>
+    .player-chart-wrap {
+        position: relative;
+        height: 320px;
+        max-height: 320px;
+    }
+
+    #historyChart {
+        width: 100% !important;
+        height: 100% !important;
+    }
+</style>
+
+<div class="container mt-3">
+    <div class="card p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-8">
+                <label class="form-label mb-1">Player Name</label>
+                <select id="playerInput" class="form-select">
+                    <option value="">Select player...</option>
+                </select>
+            </div>
+            <div class="col-md-4 text-end">
+                <button class="btn btn-outline-secondary me-2" type="button" onclick="clearPlayerSelection()">Clear</button>
+                <button class="btn btn-primary me-2" type="button" onclick="loadPlayerDetails()">Load Details</button>
+                <div id="exportGroup" class="btn-group" style="display:none;">
+                    <button type="button" class="btn btn-danger dropdown-toggle" data-bs-toggle="dropdown">Export</button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item" type="button" onclick="exportPlayerPdf()">PDF</button></li>
+                        <li><button class="dropdown-item" type="button" onclick="exportPlayerJpg()">Image (JPG)</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="playerReportArea" class="card p-3" style="display:none;">
+        <h5 id="playerTitle" class="mb-3"></h5>
+        <div id="summaryTable" class="table-responsive mb-3"></div>
+        <div class="player-chart-wrap mb-3">
+            <canvas id="historyChart"></canvas>
+        </div>
+        <div id="historyTable" class="table-responsive mt-3"></div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        let playerChart = null;
+        let playerSelector = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await hydrateNames();
+            initializePlayerSelector();
+        });
+
+        async function hydrateNames() {
+            const resp = await fetch('/Report/SearchPlayers?term=&take=2000');
+            if (!resp.ok) return;
+
+            const names = await resp.json();
+            const select = document.getElementById('playerInput');
+            if (!select) return;
+
+            select.innerHTML = '<option value="">Select player...</option>' +
+                (names || []).map(n => `<option value="${n}">${n}</option>`).join('');
+        }
+
+        function initializePlayerSelector() {
+            if (playerSelector) {
+                playerSelector.destroy();
+            }
+
+            playerSelector = new TomSelect('#playerInput', {
+                create: false,
+                maxOptions: 2000,
+                allowEmptyOption: true,
+                placeholder: 'Search player...'
+            });
+
+            playerSelector.on('change', () => {
+                if (!playerSelector.getValue()) {
+                    clearPlayerSelection();
+                }
+            });
+        }
+
+        function clearPlayerSelection() {
+            if (playerSelector) playerSelector.clear();
+            const area = document.getElementById('playerReportArea');
+            const exportGroup = document.getElementById('exportGroup');
+            if (area) area.style.display = 'none';
+            if (exportGroup) exportGroup.style.display = 'none';
+            if (playerChart) {
+                playerChart.destroy();
+                playerChart = null;
+            }
+        }
+
+        function arrow(value) {
+            if (value > 0) return '▲';
+            if (value < 0) return '▼';
+            return '▶';
+        }
+
+        async function loadPlayerDetails() {
+            const name = ((playerSelector ? playerSelector.getValue() : document.getElementById('playerInput').value) || '').trim();
+            if (!name) return;
+
+            const resp = await fetch(`/Report/GetPlayerDetails?name=${encodeURIComponent(name)}`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+
+            const p = data.player;
+            const history = data.history || [];
+
+            document.getElementById('playerReportArea').style.display = 'block';
+            document.getElementById('exportGroup').style.display = 'inline-flex';
+            document.getElementById('playerTitle').textContent = `${p.name} (${p.rank || '-'})`;
+
+            document.getElementById('summaryTable').innerHTML = `
+                <table class="table table-bordered table-sm">
+                    <thead class="table-light"><tr><th>Metric</th><th>Value</th><th>Diff/Trend</th></tr></thead>
+                    <tbody>
+                        <tr><td>Might</td><td>${(p.might ?? 0).toLocaleString()}</td><td>${(p.mightDiff ?? 0).toLocaleString()} ${arrow(p.mightDiff ?? 0)}</td></tr>
+                        <tr><td>Kills</td><td>${(p.kills ?? 0).toLocaleString()}</td><td>${(p.killsDiff ?? 0).toLocaleString()} (${Math.round(p.killsPercentage ?? 0)}%) ${arrow((p.killsPercentage ?? 0) - 100)}</td></tr>
+                        <tr><td>EDM</td><td>${(p.edm ?? 0).toLocaleString()}</td><td>${(p.edmDiff ?? 0).toLocaleString()} ${arrow(p.edmDiff ?? 0)}</td></tr>
+                        <tr><td>Troops Lost</td><td>${(p.troopsLost ?? 0).toLocaleString()}</td><td>${(p.troopsLostDiff ?? 0).toLocaleString()} ${arrow(-(p.troopsLostDiff ?? 0))}</td></tr>
+                        <tr><td>Hunt</td><td>${(p.huntPoints ?? 0).toLocaleString()}</td><td>${Math.round(p.huntPercentage ?? 0)}% ${arrow((p.huntPercentage ?? 0) - 100)}</td></tr>
+                        <tr><td>Purchase</td><td>${(p.purchasePoints ?? 0).toLocaleString()}</td><td>${Math.round(p.purchasePercentage ?? 0)}% ${arrow((p.purchasePercentage ?? 0) - 100)}</td></tr>
+                        <tr><td>Zone</td><td colspan="2">${p.zone || '-'}</td></tr>
+                    </tbody>
+                </table>`;
+
+            document.getElementById('historyTable').innerHTML = `
+                <table class="table table-bordered table-sm">
+                    <thead class="table-light"><tr><th>Week</th><th>Might Diff</th><th>Kills Diff</th><th>Hunt</th><th>Zone</th></tr></thead>
+                    <tbody>
+                        ${history.map(h => `<tr>
+                            <td>${h.fromDate} - ${h.toDate}</td>
+                            <td>${(h.mightDiff ?? 0).toLocaleString()}</td>
+                            <td>${(h.killsDiff ?? 0).toLocaleString()}</td>
+                            <td>${(h.huntPoints ?? 0).toLocaleString()}</td>
+                            <td>${h.zone || '-'}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+
+            const labels = history.map(h => `${h.fromDate}`);
+            const mightSeries = history.map(h => h.mightDiff || 0);
+            const killsSeries = history.map(h => h.killsDiff || 0);
+            const huntSeries = history.map(h => h.huntPoints || 0);
+
+            if (playerChart) playerChart.destroy();
+            playerChart = new Chart(document.getElementById('historyChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Might', data: mightSeries, borderWidth: 2 },
+                        { label: 'Kills', data: killsSeries, borderWidth: 2 },
+                        { label: 'Hunting', data: huntSeries, borderWidth: 2 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        async function exportPlayerJpg() {
+            const area = document.getElementById('playerReportArea');
+            if (!area || area.style.display === 'none') return;
+            const canvas = await html2canvas(area, { scale: 3, backgroundColor: '#ffffff' });
+            const a = document.createElement('a');
+            const n = (((playerSelector ? playerSelector.getValue() : document.getElementById('playerInput').value) || 'player')).replace(/\s+/g, '_');
+            a.download = `${n}_detail.jpg`;
+            a.href = canvas.toDataURL('image/jpeg', 0.98);
+            a.click();
+        }
+
+        async function exportPlayerPdf() {
+            const area = document.getElementById('playerReportArea');
+            if (!area || area.style.display === 'none') return;
+            const canvas = await html2canvas(area, { scale: 3, backgroundColor: '#ffffff' });
+            const { jsPDF } = window.jspdf;
+            const w = 210;
+            const h = Math.max(120, canvas.height * w / canvas.width);
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [w, h] });
+            doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
+            const n = (((playerSelector ? playerSelector.getValue() : document.getElementById('playerInput').value) || 'player')).replace(/\s+/g, '_');
+            doc.save(`${n}_detail.pdf`);
+        }
+    </script>
+}

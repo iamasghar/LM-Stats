@@ -61,6 +61,11 @@
     #topPerformers .card-body {
         padding: 0.55rem 0.65rem;
     }
+    .trend-up { color: #198754; font-weight: 600; }
+    .trend-down { color: #dc3545; font-weight: 600; }
+    .trend-flat { color: #6c757d; font-weight: 600; }
+    .mini-sparkline svg { display:block; margin-top:3px; }
+    #dataInsights .card { border: 1px solid #dbe4f0; }
 </style>
 
 <div class="container mt-3 report-theme">
@@ -160,18 +165,20 @@
 
             <div class="col-md-4 text-end">
                 <button id="generateReportBtn" class="btn btn-primary me-2" onclick="generateReport()">Generate Report</button>
-                <div id="exportGroup" class="btn-group me-2" style="display:none;">
+                <div id="exportGroup" class="btn-group me-2">
                     <button type="button" class="btn btn-danger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Export as</button>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><button id="pdfButton" class="dropdown-item" type="button" onclick="generatePDF()">PDF</button></li>
                         <li><button id="jpgButton" class="dropdown-item" type="button" onclick="generateJPG()">Image (JPG)</button></li>
                     </ul>
                 </div>
+                <a class="btn btn-outline-info me-2" href="/Report/PlayerExplorer">Player Explorer</a>
                 <button id="resetFiltersBtn" class="btn btn-outline-secondary" onclick="resetFilters()">Reset Filters</button>
             </div>
         </div>
     </div>
 
+    <div id="dataInsights" class="row g-3 mb-3"></div>
     <div id="reportTable" class="table-responsive mb-4"></div>
     <div id="topPerformers" class="row g-3 mb-4"></div>
 
@@ -382,6 +389,23 @@
             return ignored;
         }
 
+        function getAllPlayerRows() {
+            return [...(allData.completedBoth || []), ...(allData.completedOne || []), ...(allData.failedBoth || []), ...(allData.recentlyJoined || []), ...(allData.leftPlayers || [])];
+        }
+
+        function trendClass(v) { return v > 0 ? "trend-up" : (v < 0 ? "trend-down" : "trend-flat"); }
+        function trendArrow(v) { return v > 0 ? '&uarr;' : (v < 0 ? '&darr;' : '&rarr;'); }
+
+        function zoneScore(zone) { return zone === "Green" ? 3 : zone === "Yellow" ? 2 : zone === "Red" ? 1 : zone === "New" ? 2 : 0; }
+
+        function createHistorySparkline(history) {
+            if (!weeksToShow || weeksToShow.length === 0) return "";
+            const values = weeksToShow.map(w => { const e = (history || []).find(h => h.week === w.uniqueIdentifier); return zoneScore(e ? e.zone : ""); });
+            const width = 64, height = 16, pad = 1;
+            const step = values.length > 1 ? (width - (pad * 2)) / (values.length - 1) : 0;
+            const points = values.map((v, i) => `${pad + (i * step)},${height - pad - ((v / 3) * (height - (pad * 2)))}`).join(" ");
+            return `<div class="mini-sparkline" title="History trend line (Blue): Green=high, Yellow=medium, Red=low"><svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><polyline points="${points}" fill="none" stroke="#0d6efd" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg></div>`;
+        }
         function populateIgnorePlayers(data) {
             const persistedIgnored = new Set((getSavedState().ignoredPlayers || []).map(x => (x || '').toLowerCase()));
             const currentIgnored = new Set([ ...Array.from(getIgnoredPlayerSet()), ...Array.from(persistedIgnored) ]);
@@ -541,7 +565,7 @@
                     else if (zone === 'Left') colorClass = 'left';
                     cells += `<span class="heatmap-cell ${colorClass}" title="${week.fromDate} - ${week.toDate}: ${zone}"></span>`;
                 });
-                return `<td class="heatmap-container">${cells}</td>`;
+                return `<td class="heatmap-container">${cells}${createHistorySparkline(history)}</td>`;
             };
 
             const formatPercentage = (value) => Math.round(value) + '%';
@@ -549,19 +573,20 @@
             const formatRow = (row, bgColor) => {
                 const formatDiff = (value, percentage, isGood) => {
                     if (row.isNewPlayer || row.hasLeft) return '-';
-                    return `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>`;
+                    const trend = trendArrow((percentage || 100) - 100);
+                    return `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span> <span class="${trendClass((percentage || 100) - 100)}">${trend}</span>`;
                 };
-                const formatDiff2 = (value, percentage, isGood) => `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>`;
+                const formatDiff2 = (value, percentage, isGood) => `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span> <span class="${trendClass((percentage || 100) - 100)}">${trendArrow((percentage || 100) - 100)}</span>`;
 
                 return `
                     <tr style="background-color: ${bgColor}">
                         <td>${serialNumber++}</td>
                         ${col.name ? `<td>${row.name}</td>` : ''}
                         ${col.kills ? `<td>${formatDiff(row.killsDiff, row.killsPercentage, row.killsPercentage >= 100)}</td>` : ''}
-                        ${col.edm ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : row.edmDiff.toLocaleString()}</td>` : ''}
-                        ${col.troopsLost ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : row.troopsLostDiff.toLocaleString()}</td>` : ''}
+                        ${col.edm ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.edmDiff.toLocaleString()} <span class="${trendClass(row.edmDiff || 0)}">${trendArrow(row.edmDiff || 0)}</span>`}</td>` : ''}
+                        ${col.troopsLost ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.troopsLostDiff.toLocaleString()} <span class="${trendClass(-(row.troopsLostDiff || 0))}">${trendArrow(-(row.troopsLostDiff || 0))}</span>`}</td>` : ''}
                         ${col.hunt ? `<td>${formatDiff2(row.huntPoints, row.huntPercentage, row.huntPercentage >= 100)}</td>` : ''}
-                        ${col.purchase ? `<td>${row.purchasePoints.toLocaleString()}</td>` : ''}
+                        ${col.purchase ? `<td>${row.purchasePoints.toLocaleString()} <span class="${trendClass(row.purchasePoints || 0)}">${trendArrow(row.purchasePoints || 0)}</span></td>` : ''}
                         ${col.history ? `${createHistoryCells(row.history)}` : ''}
                     </tr>`;
             };
@@ -576,6 +601,7 @@
             reportTable.innerHTML = table;
 
             showTopPerformers(data.topPerformers, ignored);
+            renderDataInsights();
             document.getElementById('exportGroup').style.display = 'inline-flex';
         }
 
@@ -670,7 +696,7 @@
             const { jsPDF } = window.jspdf;
             const rowCount = reportTable.querySelectorAll('tbody tr').length;
             const summaryRows = Math.ceil(getSelectedSummaryCategories().length / 2);
-            const estimatedHeight = Math.max(297, 0 + (rowCount * 6) + (summaryRows * 45)); // replace value with 0 to add extra hight
+            const estimatedHeight = Math.max(297, 120 + (rowCount * 6) + (summaryRows * 45));
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [210, estimatedHeight] });
             const ignored = getIgnoredPlayerSet();
 
@@ -773,7 +799,7 @@
             let xLegend = 40;
             legendItems.forEach(item => {
                 doc.setFillColor(...STYLE.colors[item.color]);
-                doc.roundedRect(xLegend, legendY + 3, STYLE.legendBox.size, STYLE.legendBox.size, STYLE.legendBox.radius, STYLE.legendBox.radius, 'F');
+                doc.roundedRect(xLegend, legendY + 3, STYLE.legendBox.size, STYLE.legendBox.radius, STYLE.legendBox.radius, 'F');
                 doc.setTextColor(...STYLE.colors.textDark);
                 doc.text(item.label, xLegend + STYLE.legendBox.textOffset, legendY + 6);
                 xLegend += doc.getTextWidth(item.label) + 10;
@@ -840,3 +866,44 @@
         }
     </script>
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

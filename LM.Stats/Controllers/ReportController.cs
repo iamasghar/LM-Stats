@@ -1,8 +1,9 @@
-﻿// Controllers/ReportController.cs
+// Controllers/ReportController.cs
 using LM.Stats.Data;
 using LM.Stats.Data.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -18,6 +19,11 @@ public class ReportController : Controller
     }
 
     public IActionResult Index()
+    {
+        return View();
+    }
+
+    public IActionResult PlayerExplorer()
     {
         return View();
     }
@@ -184,4 +190,116 @@ public class ReportController : Controller
 
         return Json(trends);
     }
+
+    [HttpGet]
+    public async Task<IActionResult> SearchPlayers(string term = "", int take = 20)
+    {
+        term = (term ?? string.Empty).Trim();
+        take = take <= 0 ? 20 : Math.Min(take, 50);
+
+        var query = _context.StatsSummaries.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            query = query.Where(s => s.Name.Contains(term));
+        }
+
+        var names = await query
+            .Select(s => s.Name)
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Distinct()
+            .OrderBy(n => n)
+            .Take(take)
+            .ToListAsync();
+
+        return Json(names);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetPlayerDetails(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest("Player name is required");
+        }
+
+        var normalizedName = name.Trim().ToLower();
+
+        var targetUserId = await _context.StatsSummaries
+            .AsNoTracking()
+            .Include(s => s.Stats)
+            .Where(s => !string.IsNullOrWhiteSpace(s.Name) && s.Name.Trim().ToLower() == normalizedName)
+            .OrderByDescending(s => s.Stats.FromDate)
+            .Select(s => (long?)s.UserId)
+            .FirstOrDefaultAsync();
+
+        if (!targetUserId.HasValue)
+        {
+            return NotFound();
+        }
+
+        var rows = await _context.StatsSummaries
+            .AsNoTracking()
+            .Include(s => s.Stats)
+            .Where(s => s.UserId == targetUserId.Value)
+            .OrderBy(s => s.Stats.FromDate)
+            .Select(s => new
+            {
+                week = s.Stats.UniqueIdentifier,
+                fromDate = s.Stats.FromDate.ToString("yyyy-MM-dd"),
+                toDate = s.Stats.ToDate.ToString("yyyy-MM-dd"),
+                name = s.Name,
+                rank = s.Rank,
+                zone = s.Zone,
+                might = s.Might,
+                mightDiff = s.MightDifference,
+                kills = s.Kills,
+                killsDiff = s.KillsDifference,
+                killsPercentage = Math.Round(s.KillsPercentage),
+                edm = s.EDM,
+                edmDiff = s.EDMDifference,
+                troopsLost = s.TroopsLost,
+                troopsLostDiff = s.TroopsLostDifference,
+                huntPoints = s.HuntPoints,
+                huntPercentage = Math.Round(s.HuntPercentage),
+                purchasePoints = s.PurchasePoints,
+                purchasePercentage = Math.Round(s.PurchasePercentage),
+                firstHuntTime = s.FirstHuntTime,
+                lastHuntTime = s.LastHuntTime
+            })
+            .ToListAsync();
+
+        if (!rows.Any())
+        {
+            return NotFound();
+        }
+
+        var latest = rows.Last();
+
+        return Json(new
+        {
+            player = new
+            {
+                latest.name,
+                latest.rank,
+                latest.zone,
+                latest.might,
+                latest.mightDiff,
+                latest.kills,
+                latest.killsDiff,
+                latest.killsPercentage,
+                latest.edm,
+                latest.edmDiff,
+                latest.troopsLost,
+                latest.troopsLostDiff,
+                latest.huntPoints,
+                latest.huntPercentage,
+                latest.purchasePoints,
+                latest.purchasePercentage,
+                latest.firstHuntTime,
+                latest.lastHuntTime
+            },
+            history = rows
+        });
+    }
 }
+
