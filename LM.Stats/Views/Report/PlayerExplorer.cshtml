@@ -55,6 +55,7 @@
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.24/jspdf.plugin.autotable.min.js"></script>
 
     <script>
         let playerChart = null;
@@ -198,14 +199,67 @@
         async function exportPlayerPdf() {
             const area = document.getElementById('playerReportArea');
             if (!area || area.style.display === 'none') return;
-            const canvas = await html2canvas(area, { scale: 3, backgroundColor: '#ffffff' });
+
             const { jsPDF } = window.jspdf;
-            const w = 210;
-            const h = Math.max(120, canvas.height * w / canvas.width);
-            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [w, h] });
-            doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
-            const n = (((playerSelector ? playerSelector.getValue() : document.getElementById('playerInput').value) || 'player')).replace(/\s+/g, '_');
-            doc.save(`${n}_detail.pdf`);
+            const playerName = ((playerSelector ? playerSelector.getValue() : document.getElementById('playerInput').value) || 'player');
+
+            // Gather summary rows from DOM table
+            const summaryRows = [];
+            area.querySelectorAll('#summaryTable table tbody tr').forEach(tr => {
+                summaryRows.push(Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim()));
+            });
+
+            // Gather history rows from DOM table
+            const historyHeaders = [];
+            const historyRows = [];
+            area.querySelectorAll('#historyTable table thead th').forEach(th => historyHeaders.push(th.innerText.trim()));
+            area.querySelectorAll('#historyTable table tbody tr').forEach(tr => {
+                historyRows.push(Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim()));
+            });
+
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const pageW = doc.internal.pageSize.getWidth();
+
+            doc.setFontSize(14);
+            doc.setTextColor(30, 30, 30);
+            doc.text(`Player Report: ${playerName}`, 14, 14);
+
+            doc.setFontSize(9);
+            doc.setTextColor(120, 120, 120);
+            doc.setFont(undefined, 'italic');
+            doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageW - 14, 14, { align: 'right' });
+            doc.setFont(undefined, 'normal');
+
+            // Summary table
+            doc.setFontSize(10);
+            doc.setTextColor(30, 30, 30);
+            doc.text('Summary', 14, 24);
+            doc.autoTable({
+                head: [['Metric', 'Value', 'Diff / Trend']],
+                body: summaryRows,
+                startY: 27,
+                theme: 'grid',
+                styles: { fontSize: 9, cellPadding: 2 },
+                headStyles: { fillColor: [13, 110, 253], textColor: 255 },
+                margin: { left: 14, right: 14 }
+            });
+
+            // History table
+            const afterSummary = doc.lastAutoTable.finalY + 6;
+            doc.setFontSize(10);
+            doc.setTextColor(30, 30, 30);
+            doc.text('Weekly History', 14, afterSummary);
+            doc.autoTable({
+                head: [historyHeaders.length > 0 ? historyHeaders : ['Week', 'Might Diff', 'Kills Diff', 'Hunt', 'Zone']],
+                body: historyRows,
+                startY: afterSummary + 3,
+                theme: 'striped',
+                styles: { fontSize: 8, cellPadding: 2 },
+                headStyles: { fillColor: [40, 167, 69], textColor: 255 },
+                margin: { left: 14, right: 14 }
+            });
+
+            doc.save(`${playerName.replace(/\s+/g, '_')}_detail.pdf`);
         }
     </script>
 }

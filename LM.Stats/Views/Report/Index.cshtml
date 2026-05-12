@@ -118,6 +118,8 @@
                         <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHunt" checked><label class="form-check-label" for="headerHunt">Hunt (%)</label></div>
                         <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerPurchase" checked><label class="form-check-label" for="headerPurchase">Purchase</label></div>
                         <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHistory" checked><label class="form-check-label" for="headerHistory">History</label></div>
+                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHistoryGraph" checked><label class="form-check-label" for="headerHistoryGraph">History Graph</label></div>
+                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHistoryIndicators" checked><label class="form-check-label" for="headerHistoryIndicators">History Indicators</label></div>
                     </div>
                 </div>
             </div>
@@ -141,6 +143,7 @@
                         <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopHunt" data-summary="topHunt" checked><label class="form-check-label" for="summaryTopHunt">Top Hunt</label></div>
                         <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopEDM" data-summary="topEDM" checked><label class="form-check-label" for="summaryTopEDM">Top EDM</label></div>
                         <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopPurchase" data-summary="topPurchase" checked><label class="form-check-label" for="summaryTopPurchase">Top Purchase</label></div>
+                        <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryDataInsights" data-summary="dataInsights" checked><label class="form-check-label" for="summaryDataInsights">Total Stats</label></div>
                     </div>
                 </div>
             </div>
@@ -165,14 +168,13 @@
 
             <div class="col-md-4 text-end">
                 <button id="generateReportBtn" class="btn btn-primary me-2" onclick="generateReport()">Generate Report</button>
-                <div id="exportGroup" class="btn-group me-2">
+                <div id="exportGroup" class="btn-group me-2" style="display:none;">
                     <button type="button" class="btn btn-danger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Export as</button>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><button id="pdfButton" class="dropdown-item" type="button" onclick="generatePDF()">PDF</button></li>
                         <li><button id="jpgButton" class="dropdown-item" type="button" onclick="generateJPG()">Image (JPG)</button></li>
                     </ul>
                 </div>
-                <a class="btn btn-outline-info me-2" href="/Report/PlayerExplorer">Player Explorer</a>
                 <button id="resetFiltersBtn" class="btn btn-outline-secondary" onclick="resetFilters()">Reset Filters</button>
             </div>
         </div>
@@ -373,7 +375,9 @@
                 troopsLost: document.getElementById('headerTroopsLost').checked,
                 hunt: document.getElementById('headerHunt').checked,
                 purchase: document.getElementById('headerPurchase').checked,
-                history: document.getElementById('headerHistory').checked
+                history: document.getElementById('headerHistory').checked,
+                historyGraph: document.getElementById('headerHistoryGraph').checked,
+                historyIndicators: document.getElementById('headerHistoryIndicators').checked
             };
         }
 
@@ -381,6 +385,10 @@
             const selected = new Set();
             document.querySelectorAll('.summary-filter:checked').forEach(cb => selected.add(cb.dataset.summary));
             return summaryCategories.filter(c => selected.has(c.key));
+        }
+
+        function isDataInsightsEnabled() {
+            return document.getElementById('summaryDataInsights')?.checked ?? true;
         }
 
         function getIgnoredPlayerSet() {
@@ -565,7 +573,8 @@
                     else if (zone === 'Left') colorClass = 'left';
                     cells += `<span class="heatmap-cell ${colorClass}" title="${week.fromDate} - ${week.toDate}: ${zone}"></span>`;
                 });
-                return `<td class="heatmap-container">${cells}${createHistorySparkline(history)}</td>`;
+                const graph = col.historyGraph ? createHistorySparkline(history) : '';
+                return `<td class="heatmap-container">${cells}${graph}</td>`;
             };
 
             const formatPercentage = (value) => Math.round(value) + '%';
@@ -574,19 +583,23 @@
                 const formatDiff = (value, percentage, isGood) => {
                     if (row.isNewPlayer || row.hasLeft) return '-';
                     const trend = trendArrow((percentage || 100) - 100);
-                    return `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span> <span class="${trendClass((percentage || 100) - 100)}">${trend}</span>`;
+                    const trendHtml = col.historyIndicators ? ` <span class="${trendClass((percentage || 100) - 100)}">${trend}</span>` : '';
+                    return `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>${trendHtml}`;
                 };
-                const formatDiff2 = (value, percentage, isGood) => `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span> <span class="${trendClass((percentage || 100) - 100)}">${trendArrow((percentage || 100) - 100)}</span>`;
+                const formatDiff2 = (value, percentage, isGood) => {
+                    const trendHtml = col.historyIndicators ? ` <span class="${trendClass((percentage || 100) - 100)}">${trendArrow((percentage || 100) - 100)}</span>` : '';
+                    return `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>${trendHtml}`;
+                };
 
                 return `
                     <tr style="background-color: ${bgColor}">
                         <td>${serialNumber++}</td>
                         ${col.name ? `<td>${row.name}</td>` : ''}
                         ${col.kills ? `<td>${formatDiff(row.killsDiff, row.killsPercentage, row.killsPercentage >= 100)}</td>` : ''}
-                        ${col.edm ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.edmDiff.toLocaleString()} <span class="${trendClass(row.edmDiff || 0)}">${trendArrow(row.edmDiff || 0)}</span>`}</td>` : ''}
-                        ${col.troopsLost ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.troopsLostDiff.toLocaleString()} <span class="${trendClass(-(row.troopsLostDiff || 0))}">${trendArrow(-(row.troopsLostDiff || 0))}</span>`}</td>` : ''}
+                        ${col.edm ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.edmDiff.toLocaleString()}${col.historyIndicators ? ` <span class="${trendClass(row.edmDiff || 0)}">${trendArrow(row.edmDiff || 0)}</span>` : ''}`}</td>` : ''}
+                        ${col.troopsLost ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.troopsLostDiff.toLocaleString()}${col.historyIndicators ? ` <span class="${trendClass(-(row.troopsLostDiff || 0))}">${trendArrow(-(row.troopsLostDiff || 0))}</span>` : ''}`}</td>` : ''}
                         ${col.hunt ? `<td>${formatDiff2(row.huntPoints, row.huntPercentage, row.huntPercentage >= 100)}</td>` : ''}
-                        ${col.purchase ? `<td>${row.purchasePoints.toLocaleString()} <span class="${trendClass(row.purchasePoints || 0)}">${trendArrow(row.purchasePoints || 0)}</span></td>` : ''}
+                        ${col.purchase ? `<td>${row.purchasePoints.toLocaleString()}${col.historyIndicators ? ` <span class="${trendClass(row.purchasePoints || 0)}">${trendArrow(row.purchasePoints || 0)}</span>` : ''}</td>` : ''}
                         ${col.history ? `${createHistoryCells(row.history)}` : ''}
                     </tr>`;
             };
@@ -601,39 +614,67 @@
             reportTable.innerHTML = table;
 
             showTopPerformers(data.topPerformers, ignored);
-            renderDataInsights();
+            if (isDataInsightsEnabled()) {
+                renderDataInsights(data, ignored);
+            } else {
+                const insights = document.getElementById('dataInsights');
+                if (insights) insights.innerHTML = '';
+            }
             document.getElementById('exportGroup').style.display = 'inline-flex';
         }
 
-        function showTopPerformers(topPerformers, ignoredSet = new Set()) {
+        function renderDataInsights(data, ignoredSet) {
+            const container = document.getElementById('dataInsights');
+            if (!container) return;
+            container.innerHTML = '';
+            if (!data) return;
+
+            const ignored = ignoredSet || getIgnoredPlayerSet();
+            const allRows = [
+                ...(data.completedBoth || []),
+                ...(data.completedOne || []),
+                ...(data.failedBoth || []),
+                ...(data.recentlyJoined || []),
+                ...(data.leftPlayers || [])
+            ].filter(r => !ignored.has((r.name || '').toLowerCase()));
+
+            const active = allRows.filter(r => !r.isNewPlayer && !r.hasLeft);
+            const totalKills = active.reduce((s, r) => s + (r.killsDiff || 0), 0);
+            const totalHunt = active.reduce((s, r) => s + (r.huntPoints || 0), 0);
+            const greenCount = (data.completedBoth || []).filter(r => !ignored.has((r.name || '').toLowerCase())).length;
+            const yellowCount = (data.completedOne || []).filter(r => !ignored.has((r.name || '').toLowerCase())).length;
+            const redCount = (data.failedBoth || []).filter(r => !ignored.has((r.name || '').toLowerCase())).length;
+
+            const cards = [
+                { label: 'Total Players', value: allRows.length, color: 'primary' },
+                { label: 'Total Kills (Week)', value: totalKills.toLocaleString(), color: 'success' },
+                { label: 'Total Hunt Pts', value: totalHunt.toLocaleString(), color: 'info' },
+                { label: 'Green / Yellow / Red', value: `${greenCount} / ${yellowCount} / ${redCount}`, color: 'secondary' }
+            ];
+
+            cards.forEach(c => {
+                const col = document.createElement('div');
+                col.className = 'col-6 col-md-3';
+                col.innerHTML = `<div class="card text-center p-2"><div class="text-muted small">${c.label}</div><div class="fw-bold fs-5 text-${c.color}">${c.value}</div></div>`;
+                container.appendChild(col);
+            });
+        }
+
+        function showTopPerformers(topPerformers, ignoredSet) {
             const container = document.getElementById('topPerformers');
+            if (!container) return;
             container.innerHTML = '';
             if (!topPerformers) return;
-
-            const categories = getSelectedSummaryCategories().map(c => ({
-                title: c.title,
-                items: (topPerformers[c.key] || []).filter(i => !ignoredSet.has((i.name || '').toLowerCase())).slice(0, 3),
-                valueField: c.valueField,
-                suffix: c.suffix
-            }));
-
-            categories.forEach(category => {
-                const card = document.createElement('div');
-                const count = categories.length || 1;
-                card.className = count <= 2 ? 'col-md-6' : (count === 3 ? 'col-md-4' : 'col-md-6 col-lg-3');
-                card.innerHTML = `
-                    <div class="card h-100">
-                        <div class="card-header bg-primary text-white"><h6 class="mb-0">${category.title}</h6></div>
-                        <div class="card-body">
-                            ${category.items.map((item, index) => `
-                                <div class="d-flex justify-content-between ${index > 0 ? 'mt-2' : ''}">
-                                    <div><span class="badge bg-secondary me-2">${index + 1}</span>${item.name}</div>
-                                    <div>${item[category.valueField].toLocaleString()} ${category.suffix}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>`;
-                container.appendChild(card);
+            const ignored = ignoredSet || getIgnoredPlayerSet();
+            const selectedCats = getSelectedSummaryCategories();
+            selectedCats.forEach(cat => {
+                const items = (topPerformers[cat.key] || []).filter(i => !ignored.has((i.name || '').toLowerCase())).slice(0, 5);
+                if (items.length === 0) return;
+                const col = document.createElement('div');
+                col.className = 'col-12 col-md-6 col-lg-3';
+                const rowsHtml = items.map((item, idx) => `<tr><td>${idx+1}</td><td>${item.name}</td><td class="text-end fw-bold">${(item[cat.valueField]||0).toLocaleString()} <small class="text-muted">${cat.suffix}</small></td></tr>`).join('');
+                col.innerHTML = `<div class="card h-100"><div class="card-header fw-semibold">${cat.title}</div><div class="card-body p-0"><table class="table table-sm table-hover mb-0"><tbody>${rowsHtml}</tbody></table></div></div>`;
+                container.appendChild(col);
             });
         }
 
@@ -665,6 +706,12 @@
 
             exportRoot.appendChild(title);
             exportRoot.appendChild(subtitle);
+            if (isDataInsightsEnabled()) {
+                const insights = document.getElementById('dataInsights');
+                if (insights && insights.children.length > 0) {
+                    exportRoot.appendChild(insights.cloneNode(true));
+                }
+            }
             const tableClone = reportTable.cloneNode(true);
             tableClone.querySelectorAll('tbody td').forEach(td => {
                 td.style.padding = '0.22rem 0.38rem';
@@ -696,7 +743,7 @@
             const { jsPDF } = window.jspdf;
             const rowCount = reportTable.querySelectorAll('tbody tr').length;
             const summaryRows = Math.ceil(getSelectedSummaryCategories().length / 2);
-            const estimatedHeight = Math.max(297, 120 + (rowCount * 6) + (summaryRows * 45));
+            const estimatedHeight = Math.max(297, 130 + (isDataInsightsEnabled() ? 16 : 0) + (rowCount * 6) + (summaryRows * 45));
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [210, estimatedHeight] });
             const ignored = getIgnoredPlayerSet();
 
@@ -730,10 +777,45 @@
             Array.from(reportTable.querySelectorAll('tbody tr')).forEach(row => {
                 const rowData = Array.from(row.querySelectorAll('td')).map((cell, index) => {
                     if (index === historyColumnIndex) return cell;
-                    return cell.innerText.replace(/\n/g, ' ').trim();
+                    return cell.innerText
+                        .replace(/\n/g, ' ')
+                        .replace(/↑/g, '^')
+                        .replace(/↓/g, 'v')
+                        .replace(/→/g, '>')
+                        .trim();
                 });
                 rows.push(rowData);
             });
+
+            let tableStartY = 20;
+            if (isDataInsightsEnabled()) {
+                const allRows = [
+                    ...(allData.completedBoth || []),
+                    ...(allData.completedOne || []),
+                    ...(allData.failedBoth || []),
+                    ...(allData.recentlyJoined || []),
+                    ...(allData.leftPlayers || [])
+                ].filter(r => !ignored.has((r.name || '').toLowerCase()));
+                const activeRows = allRows.filter(r => !r.isNewPlayer && !r.hasLeft);
+                const totalKills = activeRows.reduce((s, r) => s + (r.killsDiff || 0), 0);
+                const totalHunt = activeRows.reduce((s, r) => s + (r.huntPoints || 0), 0);
+                const greenCount = (allData.completedBoth || []).filter(r => !ignored.has((r.name || '').toLowerCase())).length;
+                const yellowCount = (allData.completedOne || []).filter(r => !ignored.has((r.name || '').toLowerCase())).length;
+                const redCount = (allData.failedBoth || []).filter(r => !ignored.has((r.name || '').toLowerCase())).length;
+
+                const insightsY = 18;
+                doc.setFillColor(...STYLE.colors.legendBg);
+                doc.rect(14, insightsY, doc.internal.pageSize.width - 28, 10, 'F');
+                doc.setDrawColor(...STYLE.colors.border);
+                doc.rect(14, insightsY, doc.internal.pageSize.width - 28, 10, 'S');
+                doc.setFontSize(8.5);
+                doc.setTextColor(...STYLE.colors.textDark);
+                doc.text(`Total Players: ${allRows.length}`, 17, insightsY + 6.5);
+                doc.text(`Total Kills: ${totalKills.toLocaleString()}`, 58, insightsY + 6.5);
+                doc.text(`Total Hunt Pts: ${totalHunt.toLocaleString()}`, 99, insightsY + 6.5);
+                doc.text(`Green/Yellow/Red: ${greenCount}/${yellowCount}/${redCount}`, 142, insightsY + 6.5);
+                tableStartY = 31;
+            }
 
             const baseColumnWidths = { '#': 8, 'Name': 25, 'Kills (%)': 30, 'EDM': 30, 'Troops Lost': 25, 'Hunt (%)': 20, 'Purchase': 20, 'History': 25 };
             const selectedBaseWidths = headers.map(h => baseColumnWidths[h] ?? 20);
@@ -750,7 +832,7 @@
             doc.autoTable({
                 head: [headers],
                 body: rows,
-                startY: 20,
+                startY: tableStartY,
                 theme: 'grid',
                 styles: { fontSize: 8, cellPadding: 1, overflow: 'linebreak', textColor: STYLE.colors.textDark, lineColor: STYLE.colors.border, lineWidth: 0.1 },
                 headerStyles: { fontSize: 9, cellPadding: 2, fillColor: STYLE.colors.cardBg, textColor: STYLE.colors.textDark, lineColor: STYLE.colors.border, lineWidth: 0.1 },
@@ -799,7 +881,7 @@
             let xLegend = 40;
             legendItems.forEach(item => {
                 doc.setFillColor(...STYLE.colors[item.color]);
-                doc.roundedRect(xLegend, legendY + 3, STYLE.legendBox.size, STYLE.legendBox.radius, STYLE.legendBox.radius, 'F');
+                doc.roundedRect(xLegend, legendY + 3, STYLE.legendBox.size, STYLE.legendBox.size, STYLE.legendBox.radius, STYLE.legendBox.radius, 'F');
                 doc.setTextColor(...STYLE.colors.textDark);
                 doc.text(item.label, xLegend + STYLE.legendBox.textOffset, legendY + 6);
                 xLegend += doc.getTextWidth(item.label) + 10;
@@ -866,44 +948,3 @@
         }
     </script>
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
