@@ -19,6 +19,36 @@ html {
 
 body {
   margin-bottom: 60px;
+  background: radial-gradient(circle at 12% 0%, #f7fbff 0%, #f3f7ff 35%, #f6f8fb 100%);
+  color: #1f2937;
+}
+
+.app-shell {
+    min-height: 100vh;
+}
+
+.top-nav-shell {
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%) !important;
+    border-bottom: 1px solid #d9e2f0 !important;
+}
+
+.top-nav-shell .navbar-brand {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #1f2a44 !important;
+}
+
+.top-nav-shell .nav-link {
+    font-weight: 500;
+    color: #374151 !important;
+}
+
+.top-nav-shell .nav-link:hover {
+    color: #0b63da !important;
+}
+
+.top-nav-shell .btn {
+    border-radius: 10px;
 }
 /* wwwroot/css/site.css */
 .highlight-green {

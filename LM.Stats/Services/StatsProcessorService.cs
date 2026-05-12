@@ -64,9 +64,9 @@ public class StatsProcessorService
             {
                 summary.Name = hunt.Name;
                 summary.HuntPoints = hunt.PointsHunt;
-                summary.HuntPercentage = hunt.GoalPercentageHunt.ToSafeDecimal() ?? 0m;
+                summary.HuntPercentage = huntGoal > 0 ? (hunt.PointsHunt / huntGoal) * 100m : 0m;
                 summary.PurchasePoints = hunt.PointsPurchase;
-                summary.PurchasePercentage = hunt.GoalPercentagePurchase.ToSafeDecimal() ?? 0m;
+                summary.PurchasePercentage = purchaseGoal > 0 ? (hunt.PointsPurchase / purchaseGoal) * 100m : 0m;
                 summary.FirstHuntTime = hunt.FirstHuntTime;
                 summary.LastHuntTime = hunt.LastHuntTime;
             }

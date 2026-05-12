@@ -5,30 +5,352 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" />
 
 <style>
-    .player-chart-wrap {
-        position: relative;
-        height: 320px;
-        max-height: 320px;
+    .explorer-page {
+        --accent: #0b6ef3;
+        --accent-soft: rgba(11, 110, 243, 0.12);
+        --surface: #ffffff;
+        --surface-soft: #f5f8ff;
+        --text-main: #1f2a3d;
+        --text-muted: #5d6b82;
+        --border: #dbe3f2;
     }
 
-    #historyChart {
+    .explorer-hero {
+        background: linear-gradient(120deg, #eef4ff 0%, #f9fbff 55%, #eefaf7 100%);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.15rem 1.25rem;
+        margin-bottom: 0.9rem;
+    }
+
+    .explorer-title {
+        margin: 0;
+        font-size: 1.18rem;
+        font-weight: 700;
+        color: var(--text-main);
+        letter-spacing: 0.01em;
+    }
+
+    .explorer-subtitle {
+        margin: 0.35rem 0 0;
+        color: var(--text-muted);
+        font-size: 0.92rem;
+    }
+
+    .explorer-controls,
+    .explorer-report-card,
+    .chart-card,
+    .history-card,
+    .summary-card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow: 0 8px 22px rgba(15, 40, 91, 0.06);
+    }
+
+    .explorer-controls {
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
+    }
+
+    .explorer-controls .form-label {
+        font-size: 0.82rem;
+        letter-spacing: 0.03em;
+        color: #4f5f7b;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .explorer-controls .btn {
+        border-radius: 10px;
+    }
+
+    .explorer-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .explorer-report-card {
+        padding: 1rem;
+    }
+
+    .player-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .player-name {
+        margin: 0;
+        color: var(--text-main);
+        font-weight: 700;
+        font-size: 1.2rem;
+    }
+
+    .player-meta {
+        margin-top: 0.25rem;
+        color: var(--text-muted);
+        font-size: 0.88rem;
+    }
+
+    .zone-pill {
+        border-radius: 999px;
+        border: 1px solid #d4dceb;
+        padding: 0.28rem 0.72rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #334155;
+        background: #f8fafc;
+    }
+
+    .zone-green { background: #e7f8ef; color: #166534; border-color: #bde7cf; }
+    .zone-yellow { background: #fff8df; color: #8a6200; border-color: #f2dc93; }
+    .zone-red { background: #feecec; color: #9b1c1c; border-color: #f6bdbd; }
+    .zone-new { background: #eaf7fb; color: #075985; border-color: #b7e3f2; }
+    .zone-left { background: #eef2f8; color: #334155; border-color: #d2dae6; }
+
+    /* History table row zone banding */
+    .history-table tr.hzone-green td { background: #edfbf3; }
+    .history-table tr.hzone-yellow td { background: #fffbec; }
+    .history-table tr.hzone-red td { background: #fff0f0; }
+    .history-table tr.hzone-new td { background: #edf8fd; }
+    .history-table tr.hzone-left td { background: #f3f5f9; }
+
+    /* % value colors in history table */
+    .pct-good  { color: #0f8f44; font-weight: 600; }
+    .pct-watch { color: #b45309; font-weight: 600; }
+    .pct-risk  { color: #b91c1c; font-weight: 600; }
+
+    /* Zone color badge dot */
+    .zone-dot {
+        display: inline-block;
+        width: 12px; height: 12px;
+        border-radius: 50%;
+        vertical-align: middle;
+        border: 1.5px solid rgba(0,0,0,0.12);
+    }
+    .zone-dot-green  { background: #22c55e; }
+    .zone-dot-yellow { background: #f59e0b; }
+    .zone-dot-red    { background: #ef4444; }
+    .zone-dot-new    { background: #38bdf8; }
+    .zone-dot-left   { background: #94a3b8; }
+
+    .metrics-grid {
+        display: grid;
+        gap: 0.7rem;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin: 1rem 0;
+    }
+
+    .metric-card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+        padding: 0.75rem 0.85rem;
+    }
+
+    .metric-label {
+        margin: 0;
+        color: #44516a;
+        font-weight: 600;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .metric-value {
+        margin: 0.32rem 0 0;
+        color: #0f172a;
+        font-size: 1.05rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .metric-trend {
+        margin: 0.24rem 0 0;
+        font-size: 0.84rem;
+        font-weight: 600;
+    }
+
+    .metric-hint {
+        margin: 0.16rem 0 0;
+        color: #64748b;
+        font-size: 0.76rem;
+    }
+
+    .trend-up { color: #0f8f44; }
+    .trend-down { color: #c01f34; }
+    .trend-flat { color: #64748b; }
+
+    .summary-card,
+    .history-card,
+    .chart-card {
+        padding: 0.85rem;
+        margin-bottom: 0.85rem;
+    }
+
+    .section-title {
+        margin: 0 0 0.65rem;
+        font-size: 0.92rem;
+        color: #324058;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+
+    .detail-table thead th,
+    .history-table thead th {
+        background: #edf3ff;
+        color: #334155;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        border-bottom: 0;
+    }
+
+    .detail-table td,
+    .history-table td {
+        vertical-align: middle;
+        color: #1f2937;
+        font-size: 0.86rem;
+    }
+
+    .detail-pill {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 0.08rem 0.5rem;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        border: 1px solid transparent;
+    }
+
+    .pill-good {
+        color: #14532d;
+        background: #e7f8ef;
+        border-color: #bde7cf;
+    }
+
+    .pill-watch {
+        color: #8a6200;
+        background: #fff8df;
+        border-color: #f2dc93;
+    }
+
+    .pill-risk {
+        color: #9b1c1c;
+        background: #feecec;
+        border-color: #f6bdbd;
+    }
+
+    .chart-grid {
+        display: grid;
+        gap: 0.7rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .mini-chart-wrap {
+        position: relative;
+        height: 220px;
+        max-height: 220px;
+        background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+        border-radius: 12px;
+        border: 1px solid #e4ebf7;
+        padding: 0.45rem;
+    }
+
+    .mini-chart-title {
+        margin: 0 0 0.35rem;
+        font-size: 0.8rem;
+        color: #334155;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    #mightChart,
+    #killsChart,
+    #huntChart {
         width: 100% !important;
         height: 100% !important;
     }
+
+    .tom-select .ts-control {
+        border-radius: 10px;
+        border-color: #cfd9ec;
+        min-height: 42px;
+        box-shadow: none;
+        padding-right: 2.1rem;
+    }
+
+    .tom-select.focus .ts-control {
+        border-color: #8db6ff;
+        box-shadow: 0 0 0 0.15rem rgba(11, 110, 243, 0.15);
+    }
+
+    .tom-select .clear-button {
+        color: #64748b;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0 0.25rem;
+        right: 1.7rem;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    .tom-select .clear-button:hover {
+        color: #1e293b;
+    }
+
+    @@media (max-width: 991px) {
+        .metrics-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .chart-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 575px) {
+        .metrics-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .explorer-actions {
+            justify-content: flex-start;
+        }
+
+        .mini-chart-wrap {
+            height: 200px;
+            max-height: 200px;
+        }
+    }
 </style>
 
-<div class="container mt-3">
-    <div class="card p-3 mb-3">
+<div class="container mt-3 explorer-page">
+    <div class="explorer-hero">
+        <h2 class="explorer-title">Player Explorer</h2>
+        <p class="explorer-subtitle">Search any player to see weekly movement, performance trend, and historical zone behavior in one view.</p>
+    </div>
+
+    <div class="explorer-controls">
         <div class="row g-2 align-items-end">
             <div class="col-md-8">
                 <label class="form-label mb-1">Player Name</label>
                 <select id="playerInput" class="form-select">
-                    <option value="">Select player...</option>
+                    @* <option value="">Select player...</option> *@
                 </select>
             </div>
-            <div class="col-md-4 text-end">
-                <button class="btn btn-outline-secondary me-2" type="button" onclick="clearPlayerSelection()">Clear</button>
-                <button class="btn btn-primary me-2" type="button" onclick="loadPlayerDetails()">Load Details</button>
+            <div class="col-md-4">
+                <div class="explorer-actions">
                 <div id="exportGroup" class="btn-group" style="display:none;">
                     <button type="button" class="btn btn-danger dropdown-toggle" data-bs-toggle="dropdown">Export</button>
                     <ul class="dropdown-menu dropdown-menu-end">
@@ -36,17 +358,49 @@
                         <li><button class="dropdown-item" type="button" onclick="exportPlayerJpg()">Image (JPG)</button></li>
                     </ul>
                 </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="playerReportArea" class="card p-3" style="display:none;">
-        <h5 id="playerTitle" class="mb-3"></h5>
-        <div id="summaryTable" class="table-responsive mb-3"></div>
-        <div class="player-chart-wrap mb-3">
-            <canvas id="historyChart"></canvas>
+    <div id="playerReportArea" class="explorer-report-card" style="display:none;">
+        <div class="player-header mb-2">
+            <div>
+                <h5 id="playerTitle" class="player-name"></h5>
+                <div id="playerSubtitle" class="player-meta">Weekly snapshot and trend summary</div>
+            </div>
+            <span id="playerZoneBadge" class="zone-pill">Zone: -</span>
         </div>
-        <div id="historyTable" class="table-responsive mt-3"></div>
+
+        <div id="metricsGrid" class="metrics-grid"></div>
+
+        <div class="summary-card">
+            <h6 class="section-title">Metric Breakdown</h6>
+            <div id="summaryTable" class="table-responsive"></div>
+        </div>
+
+        <div class="chart-card">
+            <h6 class="section-title">Weekly Trend Charts</h6>
+            <div class="chart-grid">
+                <div class="mini-chart-wrap">
+                    <p class="mini-chart-title">Might Diff</p>
+                    <canvas id="mightChart"></canvas>
+                </div>
+                <div class="mini-chart-wrap">
+                    <p class="mini-chart-title">Kills Diff</p>
+                    <canvas id="killsChart"></canvas>
+                </div>
+                <div class="mini-chart-wrap">
+                    <p class="mini-chart-title">Hunt Points</p>
+                    <canvas id="huntChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="history-card mt-2">
+            <h6 class="section-title">Weekly History Table</h6>
+            <div id="historyTable" class="table-responsive"></div>
+        </div>
     </div>
 </div>
 
@@ -58,8 +412,83 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.24/jspdf.plugin.autotable.min.js"></script>
 
     <script>
-        let playerChart = null;
+        let mightChart = null;
+        let killsChart = null;
+        let huntChart = null;
         let playerSelector = null;
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString();
+        }
+
+        function formatCompact(value) {
+            return new Intl.NumberFormat('en-US', {
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(Number(value || 0));
+        }
+
+        function trendClass(value, invert = false) {
+            const normalized = invert ? -Number(value || 0) : Number(value || 0);
+            if (normalized > 0) return 'trend-up';
+            if (normalized < 0) return 'trend-down';
+            return 'trend-flat';
+        }
+
+        function trendArrow(value, invert = false) {
+            const normalized = invert ? -Number(value || 0) : Number(value || 0);
+            if (normalized > 0) return '▲';
+            if (normalized < 0) return '▼';
+            return '■';
+        }
+
+        function pctColor(pct) {
+            const p = Number(pct || 0);
+            if (p >= 95) return 'pct-good';
+            if (p >= 80) return 'pct-watch';
+            return 'pct-risk';
+        }
+
+        function hzoneClass(zone) {
+            const z = (zone || '').toLowerCase();
+            if (z === 'green')  return 'hzone-green';
+            if (z === 'yellow') return 'hzone-yellow';
+            if (z === 'red')    return 'hzone-red';
+            if (z === 'new')    return 'hzone-new';
+            return 'hzone-left';
+        }
+
+        function progressPill(percent) {
+            const p = Number(percent || 0);
+            if (p >= 100) return '<span class="detail-pill pill-good">On Track</span>';
+            if (p >= 80) return '<span class="detail-pill pill-watch">Watch</span>';
+            return '<span class="detail-pill pill-risk">Needs Focus</span>';
+        }
+
+        function zoneClass(zone) {
+            const z = (zone || '').toLowerCase();
+            if (z === 'green') return 'zone-green';
+            if (z === 'yellow') return 'zone-yellow';
+            if (z === 'red') return 'zone-red';
+            if (z === 'new') return 'zone-new';
+            if (z === 'left') return 'zone-left';
+            return '';
+        }
+
+        function metricCardHtml(metric) {
+            const trend = Number(metric.trendValue || 0);
+            const tClass = trendClass(trend, !!metric.invertTrend);
+            const tArrow = trendArrow(trend, !!metric.invertTrend);
+            const trendText = metric.trendLabel || `${trend >= 0 ? '+' : ''}${formatNumber(trend)}`;
+
+            return `
+                <article class="metric-card">
+                    <p class="metric-label">${metric.label}</p>
+                    <p class="metric-value">${metric.value}</p>
+                    <p class="metric-trend ${tClass}">${tArrow} ${trendText}</p>
+                    <p class="metric-hint">${metric.hint}</p>
+                </article>`;
+        }
 
         document.addEventListener('DOMContentLoaded', async () => {
             await hydrateNames();
@@ -87,13 +516,27 @@
                 create: false,
                 maxOptions: 2000,
                 allowEmptyOption: true,
-                placeholder: 'Search player...'
+                placeholder: 'Search player...',
+                hidePlaceholder: true,
+                plugins: {
+                    clear_button: {
+                        title: 'Clear selection'
+                    }
+                },
+                render: {
+                    no_results: function() {
+                        return '<div class="no-results">No player found</div>';
+                    }
+                }
             });
 
             playerSelector.on('change', () => {
                 if (!playerSelector.getValue()) {
                     clearPlayerSelection();
+                    return;
                 }
+
+                loadPlayerDetails();
             });
         }
 
@@ -103,16 +546,78 @@
             const exportGroup = document.getElementById('exportGroup');
             if (area) area.style.display = 'none';
             if (exportGroup) exportGroup.style.display = 'none';
-            if (playerChart) {
-                playerChart.destroy();
-                playerChart = null;
+            const metricsGrid = document.getElementById('metricsGrid');
+            const summaryTable = document.getElementById('summaryTable');
+            const historyTable = document.getElementById('historyTable');
+            const playerTitle = document.getElementById('playerTitle');
+            const playerZoneBadge = document.getElementById('playerZoneBadge');
+            if (metricsGrid) metricsGrid.innerHTML = '';
+            if (summaryTable) summaryTable.innerHTML = '';
+            if (historyTable) historyTable.innerHTML = '';
+            if (playerTitle) playerTitle.textContent = '';
+            if (playerZoneBadge) {
+                playerZoneBadge.textContent = 'Zone: -';
+                playerZoneBadge.className = 'zone-pill';
             }
+            if (mightChart) { mightChart.destroy(); mightChart = null; }
+            if (killsChart) { killsChart.destroy(); killsChart = null; }
+            if (huntChart) { huntChart.destroy(); huntChart = null; }
         }
 
-        function arrow(value) {
-            if (value > 0) return '▲';
-            if (value < 0) return '▼';
-            return '▶';
+        function createMiniChart(canvasId, labels, data, lineColor, fillColor) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return null;
+
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            data,
+                            borderColor: lineColor,
+                            backgroundColor: fillColor,
+                            fill: true,
+                            tension: 0.34,
+                            borderWidth: 2,
+                            pointRadius: 2.5,
+                            pointHoverRadius: 4.5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#e2e8f0',
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${formatNumber(context.parsed.y)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(148, 163, 184, 0.10)' },
+                            ticks: { color: '#64748b', maxRotation: 0, autoSkip: true }
+                        },
+                        y: {
+                            grid: { color: 'rgba(148, 163, 184, 0.14)' },
+                            ticks: {
+                                color: '#475569',
+                                callback: function(value) {
+                                    return formatCompact(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         async function loadPlayerDetails() {
@@ -129,31 +634,96 @@
             document.getElementById('playerReportArea').style.display = 'block';
             document.getElementById('exportGroup').style.display = 'inline-flex';
             document.getElementById('playerTitle').textContent = `${p.name} (${p.rank || '-'})`;
+            document.getElementById('playerSubtitle').textContent = 'Current values, weekly deltas, and long-run trend behavior';
+
+            const zoneBadge = document.getElementById('playerZoneBadge');
+            zoneBadge.className = `zone-pill ${zoneClass(p.zone)}`;
+            zoneBadge.textContent = `Zone: ${p.zone || '-'}`;
+
+            const metrics = [
+                {
+                    label: 'Might Diff',
+                    value: formatNumber(p.mightDiff),
+                    trendValue: 0,
+                    trendLabel: 'Reference',
+                    hint: 'Weekly Might delta (not a goal metric)'
+                },
+                {
+                    label: 'Kills',
+                    value: formatNumber(p.kills),
+                    trendValue: p.killsDiff,
+                    trendLabel: `${Number(p.killsDiff || 0) >= 0 ? '+' : ''}${formatNumber(p.killsDiff)} (${Math.round(p.killsPercentage || 0)}%)`,
+                    hint: 'Weekly delta'
+                },
+                {
+                    label: 'Hunt Points',
+                    value: formatNumber(p.huntPoints),
+                    trendValue: (Number(p.huntPercentage || 0) - 100),
+                    trendLabel: `${Math.round(p.huntPercentage || 0)}% of target`,
+                    hint: 'Weekly delta target pacing'
+                },
+                {
+                    label: 'Purchase Points',
+                    value: formatNumber(p.purchasePoints),
+                    trendValue: 0,
+                    trendLabel: `Weekly ${formatNumber(p.purchasePoints)}`,
+                    hint: 'Reference stat (not goal-based)'
+                }
+            ];
+
+            document.getElementById('metricsGrid').innerHTML = metrics.map(metricCardHtml).join('');
 
             document.getElementById('summaryTable').innerHTML = `
-                <table class="table table-bordered table-sm">
-                    <thead class="table-light"><tr><th>Metric</th><th>Value</th><th>Diff/Trend</th></tr></thead>
+                <table class="table table-bordered table-sm detail-table mb-0">
+                    <thead><tr><th>Metric</th><th>Current</th><th>Weekly Change</th><th>Target Status</th><th>How to Read</th></tr></thead>
                     <tbody>
-                        <tr><td>Might</td><td>${(p.might ?? 0).toLocaleString()}</td><td>${(p.mightDiff ?? 0).toLocaleString()} ${arrow(p.mightDiff ?? 0)}</td></tr>
-                        <tr><td>Kills</td><td>${(p.kills ?? 0).toLocaleString()}</td><td>${(p.killsDiff ?? 0).toLocaleString()} (${Math.round(p.killsPercentage ?? 0)}%) ${arrow((p.killsPercentage ?? 0) - 100)}</td></tr>
-                        <tr><td>EDM</td><td>${(p.edm ?? 0).toLocaleString()}</td><td>${(p.edmDiff ?? 0).toLocaleString()} ${arrow(p.edmDiff ?? 0)}</td></tr>
-                        <tr><td>Troops Lost</td><td>${(p.troopsLost ?? 0).toLocaleString()}</td><td>${(p.troopsLostDiff ?? 0).toLocaleString()} ${arrow(-(p.troopsLostDiff ?? 0))}</td></tr>
-                        <tr><td>Hunt</td><td>${(p.huntPoints ?? 0).toLocaleString()}</td><td>${Math.round(p.huntPercentage ?? 0)}% ${arrow((p.huntPercentage ?? 0) - 100)}</td></tr>
-                        <tr><td>Purchase</td><td>${(p.purchasePoints ?? 0).toLocaleString()}</td><td>${Math.round(p.purchasePercentage ?? 0)}% ${arrow((p.purchasePercentage ?? 0) - 100)}</td></tr>
-                        <tr><td>Zone</td><td colspan="2">${p.zone || '-'}</td></tr>
+                        <tr>
+                            <td>Might Diff</td>
+                            <td>${formatNumber(p.mightDiff)}</td>
+                            <td><span class="${trendClass(p.mightDiff)}">${trendArrow(p.mightDiff)} ${Number(p.mightDiff || 0) >= 0 ? '+' : ''}${formatNumber(p.mightDiff)}</span></td>
+                            <td><span class="detail-pill pill-watch">Reference</span></td>
+                            <td>Weekly Might change (reference only)</td>
+                        </tr>
+                        <tr>
+                            <td>Kills</td>
+                            <td>${formatNumber(p.kills)}</td>
+                            <td><span class="${trendClass(p.killsDiff)}">${trendArrow(p.killsDiff)} ${Number(p.killsDiff || 0) >= 0 ? '+' : ''}${formatNumber(p.killsDiff)}</span></td>
+                            <td>${progressPill(p.killsPercentage)}</td>
+                            <td>${Math.round(p.killsPercentage || 0)}% against weekly target</td>
+                        </tr>
+                        <tr>
+                            <td>Hunt Points</td>
+                            <td>${formatNumber(p.huntPoints)}</td>
+                            <td><span class="${trendClass((p.huntPercentage || 0) - 100)}">${trendArrow((p.huntPercentage || 0) - 100)} ${Math.round(p.huntPercentage || 0)}%</span></td>
+                            <td>${progressPill(p.huntPercentage)}</td>
+                            <td>Hunt completion against expected target</td>
+                        </tr>
+                        <tr>
+                            <td>Purchase Points</td>
+                            <td>${formatNumber(p.purchasePoints)}</td>
+                            <td>${formatNumber(p.purchasePoints)}</td>
+                            <td><span class="detail-pill pill-watch">Reference</span></td>
+                            <td>Purchase is tracked as reference, not goal</td>
+                        </tr>
                     </tbody>
                 </table>`;
 
+            function zoneDot(zone) {
+                const z = (zone || '').toLowerCase();
+                const cls = z === 'green' ? 'zone-dot-green' : z === 'yellow' ? 'zone-dot-yellow' : z === 'red' ? 'zone-dot-red' : z === 'new' ? 'zone-dot-new' : 'zone-dot-left';
+                return `<span class="zone-dot ${cls}" title="${zone || 'Left'}"></span>`;
+            }
+
             document.getElementById('historyTable').innerHTML = `
-                <table class="table table-bordered table-sm">
-                    <thead class="table-light"><tr><th>Week</th><th>Might Diff</th><th>Kills Diff</th><th>Hunt</th><th>Zone</th></tr></thead>
+                <table class="table table-bordered table-sm history-table mb-0">
+                    <thead><tr><th>Week</th><th>Might Diff</th><th>Kills Diff</th><th>Hunt</th><th>Zone</th></tr></thead>
                     <tbody>
-                        ${history.map(h => `<tr>
+                        ${history.map(h => `<tr class="${hzoneClass(h.zone)}">
                             <td>${h.fromDate} - ${h.toDate}</td>
-                            <td>${(h.mightDiff ?? 0).toLocaleString()}</td>
-                            <td>${(h.killsDiff ?? 0).toLocaleString()}</td>
-                            <td>${(h.huntPoints ?? 0).toLocaleString()}</td>
-                            <td>${h.zone || '-'}</td>
+                            <td>${formatNumber(h.mightDiff)}</td>
+                            <td>${formatNumber(h.killsDiff)} <span class="${pctColor(h.killsPercentage)}">(${Math.round(h.killsPercentage || 0)}%)</span></td>
+                            <td>${formatNumber(h.huntPoints)} <span class="${pctColor(h.huntPercentage)}">(${Math.round(h.huntPercentage || 0)}%)</span></td>
+                            <td style="text-align:center">${zoneDot(h.zone)}</td>
                         </tr>`).join('')}
                     </tbody>
                 </table>`;
@@ -163,32 +733,19 @@
             const killsSeries = history.map(h => h.killsDiff || 0);
             const huntSeries = history.map(h => h.huntPoints || 0);
 
-            if (playerChart) playerChart.destroy();
-            playerChart = new Chart(document.getElementById('historyChart'), {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [
-                        { label: 'Might', data: mightSeries, borderWidth: 2 },
-                        { label: 'Kills', data: killsSeries, borderWidth: 2 },
-                        { label: 'Hunting', data: huntSeries, borderWidth: 2 }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    }
-                }
-            });
+            if (mightChart) mightChart.destroy();
+            if (killsChart) killsChart.destroy();
+            if (huntChart) huntChart.destroy();
+
+            mightChart = createMiniChart('mightChart', labels, mightSeries, '#0b6ef3', 'rgba(11, 110, 243, 0.14)');
+            killsChart = createMiniChart('killsChart', labels, killsSeries, '#f43f5e', 'rgba(244, 63, 94, 0.12)');
+            huntChart = createMiniChart('huntChart', labels, huntSeries, '#f59e0b', 'rgba(245, 158, 11, 0.16)');
         }
 
         async function exportPlayerJpg() {
             const area = document.getElementById('playerReportArea');
             if (!area || area.style.display === 'none') return;
-            const canvas = await html2canvas(area, { scale: 3, backgroundColor: '#ffffff' });
+            const canvas = await html2canvas(area, { scale: 3, backgroundColor: '#f8fbff' });
             const a = document.createElement('a');
             const n = (((playerSelector ? playerSelector.getValue() : document.getElementById('playerInput').value) || 'player')).replace(/\s+/g, '_');
             a.download = `${n}_detail.jpg`;
@@ -204,7 +761,11 @@
             const playerName = ((playerSelector ? playerSelector.getValue() : document.getElementById('playerInput').value) || 'player');
 
             // Gather summary rows from DOM table
+            const summaryHeaders = [];
             const summaryRows = [];
+            area.querySelectorAll('#summaryTable table thead th').forEach(th => {
+                summaryHeaders.push(th.innerText.trim());
+            });
             area.querySelectorAll('#summaryTable table tbody tr').forEach(tr => {
                 summaryRows.push(Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim()));
             });
@@ -235,7 +796,7 @@
             doc.setTextColor(30, 30, 30);
             doc.text('Summary', 14, 24);
             doc.autoTable({
-                head: [['Metric', 'Value', 'Diff / Trend']],
+                head: [summaryHeaders.length > 0 ? summaryHeaders : ['Metric', 'Current', 'Weekly Change', 'Target Status', 'How to Read']],
                 body: summaryRows,
                 startY: 27,
                 theme: 'grid',
