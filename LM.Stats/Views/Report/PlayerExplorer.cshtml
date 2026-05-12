@@ -387,7 +387,7 @@
                     <canvas id="mightChart"></canvas>
                 </div>
                 <div class="mini-chart-wrap">
-                    <p class="mini-chart-title">Kills Diff</p>
+                    <p class="mini-chart-title">Kills</p>
                     <canvas id="killsChart"></canvas>
                 </div>
                 <div class="mini-chart-wrap">
@@ -716,7 +716,7 @@
 
             document.getElementById('historyTable').innerHTML = `
                 <table class="table table-bordered table-sm history-table mb-0">
-                    <thead><tr><th>Week</th><th>Might Diff</th><th>Kills Diff</th><th>Hunt</th><th>Zone</th></tr></thead>
+                    <thead><tr><th>Week</th><th>Might Diff</th><th>Kills</th><th>Hunt</th><th>Zone</th></tr></thead>
                     <tbody>
                         ${history.map(h => `<tr class="${hzoneClass(h.zone)}">
                             <td>${h.fromDate} - ${h.toDate}</td>
@@ -811,7 +811,7 @@
             doc.setTextColor(30, 30, 30);
             doc.text('Weekly History', 14, afterSummary);
             doc.autoTable({
-                head: [historyHeaders.length > 0 ? historyHeaders : ['Week', 'Might Diff', 'Kills Diff', 'Hunt', 'Zone']],
+                head: [historyHeaders.length > 0 ? historyHeaders : ['Week', 'Might Diff', 'Kills', 'Hunt', 'Zone']],
                 body: historyRows,
                 startY: afterSummary + 3,
                 theme: 'striped',
