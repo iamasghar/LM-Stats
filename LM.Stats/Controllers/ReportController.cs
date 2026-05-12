@@ -149,6 +149,7 @@ public class ReportController : Controller
 
                 return new
                 {
+                    userId = summary.UserId,
                     name = summary.Name,
                     rank = summary.Rank,
                     might = summary.Might,

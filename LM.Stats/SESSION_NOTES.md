@@ -205,3 +205,41 @@
 - Project has existing nullable warnings in older code paths (not newly introduced by this change set).
 - No functional blocker for import/rollback workflows from these warnings.
 
+---
+
+## 2026-05-12 Report UX + Comparison Enhancements
+
+### 1) Trend arrows now compare against previous report, not color/percentage heuristic
+- `GenerateReport` payload now includes `userId` for each player row.
+- Frontend `generateReport()` now fetches:
+  - selected report
+  - previous report (`selected + 1` index in available week list)
+- Previous report rows are mapped by `userId` (fallback by lowercase name when needed).
+- Column arrows now use field deltas between selected and previous reports:
+  - Kills -> `killsDiff`
+  - EDM -> `edmDiff`
+  - Troops Lost -> `troopsLostDiff`
+  - Hunt -> `huntPoints`
+  - Purchase -> `purchasePoints`
+
+### 2) After successful import, newly uploaded week auto-selects and auto-loads
+- Import success response now returns `uniqueIdentifier`.
+- Client import success flow now calls `refreshAvailableWeeks(uniqueIdentifier)` and then `generateReport()`.
+- User no longer needs manual date selection and manual report generation after import.
+
+### 3) Main report table sorting (header click like datatable)
+- Added sortable header support for visible columns:
+  - Name, Kills, EDM, Troops Lost, Hunt, Purchase
+- Added sort state and toggle logic (asc/desc).
+- Sorting applies to rendered rows on each header click.
+
+### 4) Removed global reset button visibility and added per-filter clear buttons
+- Hidden `Reset Filters` button in report actions.
+- Added right-side `X` clear button for each filter dropdown group:
+  - Player Status
+  - Report Headers
+  - Summary Types
+  - Ignore Players
+- Clear action immediately updates state and rerenders report.
+
+

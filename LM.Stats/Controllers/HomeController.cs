@@ -35,6 +35,7 @@ public class HomeController : Controller
     {
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
+        public string? UniqueIdentifier { get; set; }
     }
 
     private readonly ExcelStatsService _excelStatsService;
@@ -168,7 +169,12 @@ public class HomeController : Controller
             
             var stateInfoId = await _dbService.SaveStatsData(stats, hunts, kills, otherStats);
             await _statsProcessor.ProcessStatsAsync(stateInfoId.stateId);
-            return Json(new ImportActionResponse { Success = true, Message = "Data imported successfully from uploaded files." });
+            return Json(new ImportActionResponse
+            {
+                Success = true,
+                Message = "Data imported successfully from uploaded files.",
+                UniqueIdentifier = stats.UniqueIdentifier
+            });
         }
         catch (Exception ex)
         {

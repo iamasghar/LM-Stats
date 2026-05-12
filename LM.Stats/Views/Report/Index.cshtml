@@ -66,6 +66,47 @@
     .trend-flat { color: #6c757d; font-weight: 600; }
     .mini-sparkline svg { display:block; margin-top:3px; }
     #dataInsights .card { border: 1px solid #dbe4f0; }
+    .sortable-header { cursor: pointer; user-select: none; }
+    .reset-sort-header { cursor: pointer; user-select: none; }
+    .dropdown-with-clear {
+        position: relative;
+    }
+    .dropdown-with-clear .filter-toggle-btn {
+        padding-right: 3.8rem;
+    }
+    .dropdown-clear-icon {
+        position: absolute;
+        right: 2.25rem;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 1.45rem;
+        height: 1.45rem;
+        border: 1px solid #d7dee9;
+        border-radius: 999px;
+        background: #f8fafc;
+        color: #64748b;
+        font-size: 0.8rem;
+        font-weight: 700;
+        line-height: 1;
+        padding: 0;
+        z-index: 5;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+    }
+    .dropdown-clear-icon:hover {
+        color: #1e293b;
+        border-color: #b8c4d6;
+        background: #eef2f7;
+    }
+    .dropdown-clear-icon:focus-visible {
+        outline: 0;
+        box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.2);
+    }
+    .dropdown-clear-icon::before {
+        content: '\00D7';
+    }
 </style>
 
 <div class="container mt-3 report-theme">
@@ -78,49 +119,55 @@
 
             <div class="col-md-4">
                 <h6 class="mb-1">Player Status</h6>
-                <div class="dropdown">
-                    <button id="statusDropdownBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                        Player Status
-                    </button>
-                    <div class="dropdown-menu p-2 w-100 filter-dropdown-menu">
-                        <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".status-filter-item" placeholder="Search..." />
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="statusSelectAll" checked>
-                            <label class="form-check-label" for="statusSelectAll">Select All</label>
+                <div class="dropdown-with-clear">
+                    <div class="dropdown">
+                        <button id="statusDropdownBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                            Player Status
+                        </button>
+                        <div class="dropdown-menu p-2 w-100 filter-dropdown-menu">
+                            <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".status-filter-item" placeholder="Search..." />
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="statusSelectAll" checked>
+                                <label class="form-check-label" for="statusSelectAll">Select All</label>
+                            </div>
+                            <hr class="my-2" />
+                            <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusCompletedBoth" checked><label class="form-check-label" for="statusCompletedBoth">Completed Both</label></div>
+                            <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusCompletedOne" checked><label class="form-check-label" for="statusCompletedOne">Completed One</label></div>
+                            <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusFailedBoth" checked><label class="form-check-label" for="statusFailedBoth">Failed Both</label></div>
+                            <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusNewPlayers" checked><label class="form-check-label" for="statusNewPlayers">New Players</label></div>
+                            <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusLeftPlayers" checked><label class="form-check-label" for="statusLeftPlayers">Left Players</label></div>
                         </div>
-                        <hr class="my-2" />
-                        <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusCompletedBoth" checked><label class="form-check-label" for="statusCompletedBoth">Completed Both</label></div>
-                        <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusCompletedOne" checked><label class="form-check-label" for="statusCompletedOne">Completed One</label></div>
-                        <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusFailedBoth" checked><label class="form-check-label" for="statusFailedBoth">Failed Both</label></div>
-                        <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusNewPlayers" checked><label class="form-check-label" for="statusNewPlayers">New Players</label></div>
-                        <div class="form-check status-filter-item"><input class="form-check-input status-filter" type="checkbox" id="statusLeftPlayers" checked><label class="form-check-label" for="statusLeftPlayers">Left Players</label></div>
                     </div>
+                    <button type="button" class="dropdown-clear-icon" title="Clear player status" aria-label="Clear player status" onclick="clearFilterGroup('status', event)"></button>
                 </div>
             </div>
 
             <div class="col-md-4">
                 <h6 class="mb-1">Report Headers</h6>
-                <div class="dropdown">
-                    <button id="headersDropdownBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                        Report Headers
-                    </button>
-                    <div class="dropdown-menu p-2 w-100 filter-dropdown-menu">
-                        <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".header-filter-item" placeholder="Search..." />
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="headerSelectAll" checked>
-                            <label class="form-check-label" for="headerSelectAll">Select All</label>
+                <div class="dropdown-with-clear">
+                    <div class="dropdown">
+                        <button id="headersDropdownBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                            Report Headers
+                        </button>
+                        <div class="dropdown-menu p-2 w-100 filter-dropdown-menu">
+                            <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".header-filter-item" placeholder="Search..." />
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="headerSelectAll" checked>
+                                <label class="form-check-label" for="headerSelectAll">Select All</label>
+                            </div>
+                            <hr class="my-2" />
+                            <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerName" checked><label class="form-check-label" for="headerName">Name</label></div>
+                            <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerKills" checked><label class="form-check-label" for="headerKills">Kills (%)</label></div>
+                            <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerEDM" checked><label class="form-check-label" for="headerEDM">EDM</label></div>
+                            <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerTroopsLost" checked><label class="form-check-label" for="headerTroopsLost">Troops Lost</label></div>
+                            <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHunt" checked><label class="form-check-label" for="headerHunt">Hunt (%)</label></div>
+                            <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerPurchase" checked><label class="form-check-label" for="headerPurchase">Purchase</label></div>
+                            <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHistory" checked><label class="form-check-label" for="headerHistory">History</label></div>
+                            <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHistoryGraph" checked><label class="form-check-label" for="headerHistoryGraph">History Graph</label></div>
+                            <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHistoryIndicators" checked><label class="form-check-label" for="headerHistoryIndicators">History Indicators</label></div>
                         </div>
-                        <hr class="my-2" />
-                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerName" checked><label class="form-check-label" for="headerName">Name</label></div>
-                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerKills" checked><label class="form-check-label" for="headerKills">Kills (%)</label></div>
-                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerEDM" checked><label class="form-check-label" for="headerEDM">EDM</label></div>
-                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerTroopsLost" checked><label class="form-check-label" for="headerTroopsLost">Troops Lost</label></div>
-                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHunt" checked><label class="form-check-label" for="headerHunt">Hunt (%)</label></div>
-                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerPurchase" checked><label class="form-check-label" for="headerPurchase">Purchase</label></div>
-                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHistory" checked><label class="form-check-label" for="headerHistory">History</label></div>
-                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHistoryGraph" checked><label class="form-check-label" for="headerHistoryGraph">History Graph</label></div>
-                        <div class="form-check header-filter-item"><input class="form-check-input header-filter" type="checkbox" id="headerHistoryIndicators" checked><label class="form-check-label" for="headerHistoryIndicators">History Indicators</label></div>
                     </div>
+                    <button type="button" class="dropdown-clear-icon" title="Clear report headers" aria-label="Clear report headers" onclick="clearFilterGroup('headers', event)"></button>
                 </div>
             </div>
         </div>
@@ -128,41 +175,47 @@
         <div class="row g-2 mt-1 align-items-end">
             <div class="col-md-4">
                 <h6 class="mb-1">Summary Types</h6>
-                <div class="dropdown">
-                    <button id="summaryDropdownBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                        Summary Types
-                    </button>
-                    <div class="dropdown-menu p-2 w-100 filter-dropdown-menu">
-                        <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".summary-filter-item" placeholder="Search..." />
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="summarySelectAll" checked>
-                            <label class="form-check-label" for="summarySelectAll">Select All</label>
+                <div class="dropdown-with-clear">
+                    <div class="dropdown">
+                        <button id="summaryDropdownBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                            Summary Types
+                        </button>
+                        <div class="dropdown-menu p-2 w-100 filter-dropdown-menu">
+                            <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".summary-filter-item" placeholder="Search..." />
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="summarySelectAll" checked>
+                                <label class="form-check-label" for="summarySelectAll">Select All</label>
+                            </div>
+                            <hr class="my-2" />
+                            <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopKills" data-summary="topKills" checked><label class="form-check-label" for="summaryTopKills">Top Kills</label></div>
+                            <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopHunt" data-summary="topHunt" checked><label class="form-check-label" for="summaryTopHunt">Top Hunt</label></div>
+                            <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopEDM" data-summary="topEDM" checked><label class="form-check-label" for="summaryTopEDM">Top EDM</label></div>
+                            <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopPurchase" data-summary="topPurchase" checked><label class="form-check-label" for="summaryTopPurchase">Top Purchase</label></div>
+                            <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryDataInsights" data-summary="dataInsights" checked><label class="form-check-label" for="summaryDataInsights">Total Stats</label></div>
                         </div>
-                        <hr class="my-2" />
-                        <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopKills" data-summary="topKills" checked><label class="form-check-label" for="summaryTopKills">Top Kills</label></div>
-                        <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopHunt" data-summary="topHunt" checked><label class="form-check-label" for="summaryTopHunt">Top Hunt</label></div>
-                        <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopEDM" data-summary="topEDM" checked><label class="form-check-label" for="summaryTopEDM">Top EDM</label></div>
-                        <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryTopPurchase" data-summary="topPurchase" checked><label class="form-check-label" for="summaryTopPurchase">Top Purchase</label></div>
-                        <div class="form-check summary-filter-item"><input class="form-check-input summary-filter" type="checkbox" id="summaryDataInsights" data-summary="dataInsights" checked><label class="form-check-label" for="summaryDataInsights">Total Stats</label></div>
                     </div>
+                    <button type="button" class="dropdown-clear-icon" title="Clear summary types" aria-label="Clear summary types" onclick="clearFilterGroup('summary', event)"></button>
                 </div>
             </div>
 
             <div class="col-md-4">
                 <h6 class="mb-1">Players to Ignore</h6>
-                <div class="dropdown">
-                    <button id="ignorePlayersBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                        Ignore Players
-                    </button>
-                    <div class="dropdown-menu p-2 w-100 filter-dropdown-menu" id="ignorePlayersContainer">
-                        <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".ignore-player-item" placeholder="Search players..." />
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="ignoreSelectAll">
-                            <label class="form-check-label" for="ignoreSelectAll">Select All</label>
+                <div class="dropdown-with-clear">
+                    <div class="dropdown">
+                        <button id="ignorePlayersBtn" class="btn filter-toggle-btn w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                            Ignore Players
+                        </button>
+                        <div class="dropdown-menu p-2 w-100 filter-dropdown-menu" id="ignorePlayersContainer">
+                            <input type="text" class="form-control form-control-sm mb-2 dropdown-search" data-target=".ignore-player-item" placeholder="Search players..." />
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="ignoreSelectAll">
+                                <label class="form-check-label" for="ignoreSelectAll">Select All</label>
+                            </div>
+                            <hr class="my-2" />
+                            <div class="text-muted small">Generate report to load players</div>
                         </div>
-                        <hr class="my-2" />
-                        <div class="text-muted small">Generate report to load players</div>
                     </div>
+                    <button type="button" class="dropdown-clear-icon" title="Clear ignored players" aria-label="Clear ignored players" onclick="clearFilterGroup('ignore', event)"></button>
                 </div>
             </div>
 
@@ -175,7 +228,7 @@
                         <li><button id="jpgButton" class="dropdown-item" type="button" onclick="generateJPG()">Image (JPG)</button></li>
                     </ul>
                 </div>
-                <button id="resetFiltersBtn" class="btn btn-outline-secondary" onclick="resetFilters()">Reset Filters</button>
+                <button id="resetFiltersBtn" class="btn btn-outline-secondary d-none" onclick="resetFilters()">Reset Filters</button>
             </div>
         </div>
     </div>
@@ -204,6 +257,9 @@
         let allData = {};
         let currentWeek = '';
         let weeksToShow = [];
+        let availableWeeks = [];
+        let previousReportMap = new Map();
+        let currentSort = { key: null, direction: 'desc' };
 
         const summaryCategories = [
             { key: 'topKills', title: 'Top Kills', valueField: 'killsDiff', suffix: 'kills' },
@@ -249,11 +305,12 @@
 
         function refreshWeekDropdown(preferredWeek) {
             const dropdown = document.getElementById('weekDropdown');
-            if (!dropdown) return;
+            if (!dropdown) return Promise.resolve();
 
-            fetch('/Report/GetAvailableWeeks')
+            return fetch('/Report/GetAvailableWeeks')
                 .then(response => response.json())
                 .then(weeks => {
+                    availableWeeks = weeks || [];
                     const currentSelection = preferredWeek || dropdown.value || getSavedState().week || '';
                     dropdown.innerHTML = '';
 
@@ -292,6 +349,9 @@
 
             document.querySelectorAll('.status-filter, .header-filter, .summary-filter').forEach(cb => {
                 cb.addEventListener('change', () => {
+                    if (cb.id === 'headerHistory') {
+                        resetSort(false);
+                    }
                     updateAllDropdownButtonTexts();
                     saveState();
                     if (allData && Object.keys(allData).length > 0) displayReport(allData);
@@ -417,6 +477,113 @@
             return [...(allData.completedBoth || []), ...(allData.completedOne || []), ...(allData.failedBoth || []), ...(allData.recentlyJoined || []), ...(allData.leftPlayers || [])];
         }
 
+        function clearFilterGroup(group, evt) {
+            if (evt) {
+                evt.preventDefault();
+                evt.stopPropagation();
+            }
+
+            if (group === 'status') {
+                document.querySelectorAll('.status-filter').forEach(cb => cb.checked = false);
+                const all = document.getElementById('statusSelectAll');
+                if (all) all.checked = false;
+            }
+
+            if (group === 'headers') {
+                document.querySelectorAll('.header-filter').forEach(cb => cb.checked = false);
+                const all = document.getElementById('headerSelectAll');
+                if (all) all.checked = false;
+            }
+
+            if (group === 'summary') {
+                document.querySelectorAll('.summary-filter').forEach(cb => cb.checked = false);
+                const all = document.getElementById('summarySelectAll');
+                if (all) all.checked = false;
+            }
+
+            if (group === 'ignore') {
+                document.querySelectorAll('.ignore-player-filter').forEach(cb => cb.checked = false);
+                const all = document.getElementById('ignoreSelectAll');
+                if (all) all.checked = false;
+            }
+
+            updateAllDropdownButtonTexts();
+            saveState();
+            if (allData && Object.keys(allData).length > 0) {
+                displayReport(allData);
+            }
+        }
+
+        function resetSort(shouldRender) {
+            currentSort = { key: null, direction: 'desc' };
+            if (shouldRender && allData && Object.keys(allData).length > 0) {
+                displayReport(allData);
+            }
+        }
+
+        function getRowKey(row) {
+            if (row && row.userId !== undefined && row.userId !== null) {
+                return `id:${row.userId}`;
+            }
+            return `name:${(row?.name || '').toLowerCase()}`;
+        }
+
+        function buildPreviousReportMap(data) {
+            previousReportMap = new Map();
+            if (!data) return;
+
+            const rows = [
+                ...(data.completedBoth || []),
+                ...(data.completedOne || []),
+                ...(data.failedBoth || []),
+                ...(data.recentlyJoined || []),
+                ...(data.leftPlayers || [])
+            ];
+
+            rows.forEach(row => previousReportMap.set(getRowKey(row), row));
+        }
+
+        function sortIndicator(key) {
+            if (currentSort.key !== key) return '';
+            return currentSort.direction === 'asc' ? ' ^' : ' v';
+        }
+
+        function compareRows(a, b, key) {
+            if (key === 'name') {
+                return (a.name || '').localeCompare((b.name || ''));
+            }
+
+            const av = Number(a[key] || 0);
+            const bv = Number(b[key] || 0);
+            return av - bv;
+        }
+
+        function bindSortHandlers() {
+            document.querySelectorAll('#reportTable th.sortable-header').forEach(th => {
+                th.addEventListener('click', function() {
+                    const key = th.dataset.sortKey;
+                    if (!key) return;
+
+                    if (currentSort.key === key) {
+                        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        currentSort.key = key;
+                        currentSort.direction = key === 'name' ? 'asc' : 'desc';
+                    }
+
+                    if (allData && Object.keys(allData).length > 0) {
+                        displayReport(allData);
+                    }
+                });
+            });
+
+            document.querySelectorAll('#reportTable th.reset-sort-header').forEach(th => {
+                th.addEventListener('click', function() {
+                    resetSort(true);
+                });
+            });
+        }
+
         function trendClass(v) { return v > 0 ? "trend-up" : (v < 0 ? "trend-down" : "trend-flat"); }
         function trendArrow(v) { return v > 0 ? '&uarr;' : (v < 0 ? '&darr;' : '&rarr;'); }
 
@@ -518,20 +685,35 @@
             }
         }
 
-        function generateReport() {
+        async function generateReport() {
             const week = document.getElementById('weekDropdown').value;
             currentWeek = week;
+            resetSort(false);
 
             setButtonLoading('generateReportBtn', true, 'Generating...', 'Generate Report');
 
-            fetch(`/Report/GenerateReport?week=${encodeURIComponent(week)}`)
-                .then(response => response.json())
-                .then(data => {
-                    allData = data;
-                    populateIgnorePlayers(data);
-                    displayReport(data);
-                })
-                .finally(() => setButtonLoading('generateReportBtn', false, '', 'Generate Report'));
+            try {
+                const selectedResponse = await fetch(`/Report/GenerateReport?week=${encodeURIComponent(week)}`);
+                const selectedData = await selectedResponse.json();
+
+                const selectedIndex = availableWeeks.findIndex(w => w.uniqueIdentifier === week);
+                let previousData = null;
+
+                if (selectedIndex >= 0 && selectedIndex + 1 < availableWeeks.length) {
+                    const prevWeek = availableWeeks[selectedIndex + 1].uniqueIdentifier;
+                    const prevResponse = await fetch(`/Report/GenerateReport?week=${encodeURIComponent(prevWeek)}`);
+                    if (prevResponse.ok) {
+                        previousData = await prevResponse.json();
+                    }
+                }
+
+                buildPreviousReportMap(previousData);
+                allData = selectedData;
+                populateIgnorePlayers(selectedData);
+                displayReport(selectedData);
+            } finally {
+                setButtonLoading('generateReportBtn', false, '', 'Generate Report');
+            }
         }
 
         function displayReport(data) {
@@ -557,18 +739,35 @@
             const filteredRecentlyJoined = showNewPlayers ? removeIgnored(data.recentlyJoined || []) : [];
             const filteredLeftPlayers = showLeftPlayers ? removeIgnored(data.leftPlayers || []) : [];
 
+            const rowsWithStyle = [
+                ...filteredCompletedBoth.map(r => ({ ...r, __bg: '#e6ffed' })),
+                ...filteredCompletedOne.map(r => ({ ...r, __bg: '#fff9db' })),
+                ...filteredFailedBoth.map(r => ({ ...r, __bg: '#ffebee' })),
+                ...filteredRecentlyJoined.map(r => ({ ...r, __bg: '#f0f0f0' })),
+                ...filteredLeftPlayers.map(r => ({ ...r, __bg: '#e0e0e0' }))
+            ];
+
+            if (currentSort.key) {
+                rowsWithStyle.sort((a, b) => {
+                    const result = compareRows(a, b, currentSort.key);
+                    return currentSort.direction === 'asc' ? result : -result;
+                });
+            } else {
+                rowsWithStyle.sort((a, b) => (b.killsDiff || 0) - (a.killsDiff || 0));
+            }
+
             let table = `
                 <table class="table table-bordered table-hover">
                     <thead class="table-light">
                         <tr>
                             <th>#</th>
-                            ${col.name ? '<th>Name</th>' : ''}
-                            ${col.kills ? '<th>Kills (%)</th>' : ''}
-                            ${col.edm ? '<th>EDM</th>' : ''}
-                            ${col.troopsLost ? '<th>Troops Lost</th>' : ''}
-                            ${col.hunt ? '<th>Hunt (%)</th>' : ''}
-                            ${col.purchase ? '<th>Purchase</th>' : ''}
-                            ${col.history ? '<th>History</th>' : ''}
+                            ${col.name ? `<th class="sortable-header" data-sort-key="name">Name${sortIndicator('name')}</th>` : ''}
+                            ${col.kills ? `<th class="sortable-header" data-sort-key="killsDiff">Kills (%)${sortIndicator('killsDiff')}</th>` : ''}
+                            ${col.edm ? `<th class="sortable-header" data-sort-key="edmDiff">EDM${sortIndicator('edmDiff')}</th>` : ''}
+                            ${col.troopsLost ? `<th class="sortable-header" data-sort-key="troopsLostDiff">Troops Lost${sortIndicator('troopsLostDiff')}</th>` : ''}
+                            ${col.hunt ? `<th class="sortable-header" data-sort-key="huntPoints">Hunt (%)${sortIndicator('huntPoints')}</th>` : ''}
+                            ${col.purchase ? `<th class="sortable-header" data-sort-key="purchasePoints">Purchase${sortIndicator('purchasePoints')}</th>` : ''}
+                            ${col.history ? '<th class="reset-sort-header" title="Click to reset sort">History</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>`;
@@ -595,15 +794,24 @@
 
             const formatPercentage = (value) => Math.round(value) + '%';
 
+            const trendByPrevious = (row, field) => {
+                if (!col.historyIndicators) return '';
+                const previous = previousReportMap.get(getRowKey(row));
+                if (!previous) {
+                    return ` <span class="trend-flat">${trendArrow(0)}</span>`;
+                }
+                const diff = Number(row[field] || 0) - Number(previous[field] || 0);
+                return ` <span class="${trendClass(diff)}">${trendArrow(diff)}</span>`;
+            };
+
             const formatRow = (row, bgColor) => {
                 const formatDiff = (value, percentage, isGood) => {
                     if (row.isNewPlayer || row.hasLeft) return '-';
-                    const trend = trendArrow((percentage || 100) - 100);
-                    const trendHtml = col.historyIndicators ? ` <span class="${trendClass((percentage || 100) - 100)}">${trend}</span>` : '';
+                    const trendHtml = trendByPrevious(row, 'killsDiff');
                     return `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>${trendHtml}`;
                 };
                 const formatDiff2 = (value, percentage, isGood) => {
-                    const trendHtml = col.historyIndicators ? ` <span class="${trendClass((percentage || 100) - 100)}">${trendArrow((percentage || 100) - 100)}</span>` : '';
+                    const trendHtml = trendByPrevious(row, 'huntPoints');
                     return `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>${trendHtml}`;
                 };
 
@@ -612,22 +820,19 @@
                         <td>${serialNumber++}</td>
                         ${col.name ? `<td>${row.name}</td>` : ''}
                         ${col.kills ? `<td>${formatDiff(row.killsDiff, row.killsPercentage, row.killsPercentage >= 100)}</td>` : ''}
-                        ${col.edm ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.edmDiff.toLocaleString()}${col.historyIndicators ? ` <span class="${trendClass(row.edmDiff || 0)}">${trendArrow(row.edmDiff || 0)}</span>` : ''}`}</td>` : ''}
-                        ${col.troopsLost ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.troopsLostDiff.toLocaleString()}${col.historyIndicators ? ` <span class="${trendClass(-(row.troopsLostDiff || 0))}">${trendArrow(-(row.troopsLostDiff || 0))}</span>` : ''}`}</td>` : ''}
+                        ${col.edm ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.edmDiff.toLocaleString()}${trendByPrevious(row, 'edmDiff')}`}</td>` : ''}
+                        ${col.troopsLost ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.troopsLostDiff.toLocaleString()}${trendByPrevious(row, 'troopsLostDiff')}`}</td>` : ''}
                         ${col.hunt ? `<td>${formatDiff2(row.huntPoints, row.huntPercentage, row.huntPercentage >= 100)}</td>` : ''}
-                        ${col.purchase ? `<td>${row.purchasePoints.toLocaleString()}${col.historyIndicators ? ` <span class="${trendClass(row.purchasePoints || 0)}">${trendArrow(row.purchasePoints || 0)}</span>` : ''}</td>` : ''}
+                        ${col.purchase ? `<td>${row.purchasePoints.toLocaleString()}${trendByPrevious(row, 'purchasePoints')}</td>` : ''}
                         ${col.history ? `${createHistoryCells(row.history)}` : ''}
                     </tr>`;
             };
 
-            filteredCompletedBoth.sort((a, b) => b.killsDiff - a.killsDiff).forEach(r => table += formatRow(r, '#e6ffed'));
-            filteredCompletedOne.sort((a, b) => b.killsDiff - a.killsDiff).forEach(r => table += formatRow(r, '#fff9db'));
-            filteredFailedBoth.sort((a, b) => b.killsDiff - a.killsDiff).forEach(r => table += formatRow(r, '#ffebee'));
-            filteredRecentlyJoined.sort((a, b) => b.killsDiff - a.killsDiff).forEach(r => table += formatRow(r, '#f0f0f0'));
-            filteredLeftPlayers.sort((a, b) => b.killsDiff - a.killsDiff).forEach(r => table += formatRow(r, '#e0e0e0'));
+            rowsWithStyle.forEach(r => table += formatRow(r, r.__bg));
 
             table += `</tbody></table>`;
             reportTable.innerHTML = table;
+            bindSortHandlers();
 
             showTopPerformers(data.topPerformers, ignored);
             if (isDataInsightsEnabled()) {

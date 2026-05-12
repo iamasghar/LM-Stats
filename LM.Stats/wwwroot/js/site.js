@@ -227,7 +227,12 @@
                     importModal.hide();
                     showAlert(response.message, 'success');
                     if (typeof window.refreshAvailableWeeks === 'function') {
-                        window.refreshAvailableWeeks();
+                        Promise.resolve(window.refreshAvailableWeeks(response.uniqueIdentifier || null))
+                            .then(() => {
+                                if (typeof window.generateReport === 'function') {
+                                    window.generateReport();
+                                }
+                            });
                     }
                 } else {
                     setValidationStatus(response.message || 'Import failed.', 'danger', false);
