@@ -247,32 +247,48 @@
             apply(state.summary);
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            applySavedStaticFilters();
+        function refreshWeekDropdown(preferredWeek) {
+            const dropdown = document.getElementById('weekDropdown');
+            if (!dropdown) return;
+
             fetch('/Report/GetAvailableWeeks')
                 .then(response => response.json())
                 .then(weeks => {
-                    const dropdown = document.getElementById('weekDropdown');
+                    const currentSelection = preferredWeek || dropdown.value || getSavedState().week || '';
+                    dropdown.innerHTML = '';
+
                     weeks.forEach(week => {
                         const option = document.createElement('option');
                         option.value = week.uniqueIdentifier;
                         option.text = `${formatDate(week.fromDate)} - ${formatDate(week.toDate)}`;
                         dropdown.appendChild(option);
                     });
-                    const savedState = getSavedState();
-                    if (savedState.week && dropdown.querySelector("option[value='" + savedState.week + "']") ) {
-                        dropdown.value = savedState.week;
+
+                    if (currentSelection && dropdown.querySelector("option[value='" + currentSelection + "']")) {
+                        dropdown.value = currentSelection;
                     } else if (weeks.length > 0) {
                         dropdown.value = weeks[0].uniqueIdentifier;
                     }
-                    currentWeek = dropdown.value;
+
+                    currentWeek = dropdown.value || '';
+                    saveState();
                 });
+        }
+
+        window.refreshAvailableWeeks = refreshWeekDropdown;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            applySavedStaticFilters();
+            refreshWeekDropdown();
 
             setupSelectAll('statusSelectAll', '.status-filter');
             setupSelectAll('headerSelectAll', '.header-filter');
             setupSelectAll('summarySelectAll', '.summary-filter');
             setupSearchHandlers();
-            document.getElementById('weekDropdown')?.addEventListener('change', () => saveState());
+            document.getElementById('weekDropdown')?.addEventListener('change', () => {
+                currentWeek = document.getElementById('weekDropdown')?.value || '';
+                saveState();
+            });
 
             document.querySelectorAll('.status-filter, .header-filter, .summary-filter').forEach(cb => {
                 cb.addEventListener('change', () => {

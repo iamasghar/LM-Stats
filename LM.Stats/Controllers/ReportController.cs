@@ -12,10 +12,12 @@ namespace LM.Stats.Controllers;
 public class ReportController : Controller
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<ReportController> _logger;
 
-    public ReportController(AppDbContext context)
+    public ReportController(AppDbContext context, ILogger<ReportController> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public IActionResult Index()
@@ -41,6 +43,59 @@ public class ReportController : Controller
             .ToListAsync();
 
         return Json(weeks);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetUploadedReports()
+    {
+        var reports = await _context.Stats
+            .AsNoTracking()
+            .OrderByDescending(s => s.FromDate)
+            .Select(s => new
+            {
+                id = s.Id,
+                uniqueIdentifier = s.UniqueIdentifier,
+                fromDate = s.FromDate.ToString("yyyy-MM-dd"),
+                toDate = s.ToDate.ToString("yyyy-MM-dd"),
+                displayName = $"{s.FromDate:dd MMM yyyy} - {s.ToDate:dd MMM yyyy}"
+            })
+            .ToListAsync();
+
+        return Json(reports);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteUploadedReport(int statsId)
+    {
+        var stats = await _context.Stats
+            .FirstOrDefaultAsync(s => s.Id == statsId);
+
+        if (stats == null)
+        {
+            return Json(new { success = false, message = "Selected report was not found." });
+        }
+
+        await using var trx = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            _context.Stats.Remove(stats);
+            await _context.SaveChangesAsync();
+            await trx.CommitAsync();
+
+            _logger.LogInformation("Deleted uploaded report {StatsId} ({FromDate} - {ToDate}).", stats.Id, stats.FromDate, stats.ToDate);
+
+            return Json(new
+            {
+                success = true,
+                message = $"Deleted report for {stats.FromDate:dd MMM yyyy} - {stats.ToDate:dd MMM yyyy}."
+            });
+        }
+        catch (Exception ex)
+        {
+            await trx.RollbackAsync();
+            _logger.LogError(ex, "Failed deleting uploaded report {StatsId}.", statsId);
+            return Json(new { success = false, message = "Failed to delete report." });
+        }
     }
 
     [HttpGet]

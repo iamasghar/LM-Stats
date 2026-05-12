@@ -1,67 +1,280 @@
 ﻿$(document).ready(function() {
-    // Initialize date range picker
-    $('.daterange').daterangepicker({
+    const importModal = new bootstrap.Modal(document.getElementById('importModal'));
+    const confirmBackupModal = new bootstrap.Modal(document.getElementById('confirmBackupModal'));
+    const confirmSyncModal = new bootstrap.Modal(document.getElementById('confirmSyncModal'));
+    const rollbackModal = new bootstrap.Modal(document.getElementById('rollbackModal'));
+
+    const $huntFile = $('#huntFileInput');
+    const $killsFile = $('#killsFileInput');
+    const $dateRange = $('#dateRange');
+    const $uniqueId = $('#uniqueId');
+    const $submitImport = $('#submitImport');
+    const $status = $('#fileValidationStatus');
+    const $rollbackDropdown = $('#rollbackReportDropdown');
+    let isImportSubmitting = false;
+
+    $dateRange.daterangepicker({
+        parentEl: '#importModal',
+        drops: 'up',
         opens: 'left',
-        autoUpdateInput: false,
+        autoApply: true,
+        autoUpdateInput: true,
         locale: {
             format: 'YYYY/MM/DD',
             cancelLabel: 'Clear'
         }
     });
 
-    const importModal = new bootstrap.Modal(document.getElementById('importModal'));
-    const confirmBackupModal = new bootstrap.Modal(document.getElementById('confirmBackupModal'));
-    const confirmSyncModal = new bootstrap.Modal(document.getElementById('confirmSyncModal'));
+    function setDateRangeValue(from, to) {
+        const picker = $dateRange.data('daterangepicker');
+        if (!picker) return;
 
-    $('.daterange').on('apply.daterangepicker', function(ev, picker) {
-        $(this).val(picker.startDate.format('YYYY/MM/DD') + ' - ' + picker.endDate.format('YYYY/MM/DD'));
-        // Generate unique ID
-        const uniqueId = `${picker.startDate.format('YYYYMMDD')}_${picker.endDate.format('YYYYMMDD')}_${new Date().getTime()}`;
-        $('#uniqueId').val(uniqueId);
-    });
+        picker.setStartDate(moment(from));
+        picker.setEndDate(moment(to));
+        $dateRange.val(`${moment(from).format('YYYY/MM/DD')} - ${moment(to).format('YYYY/MM/DD')}`);
+    }
 
-    $('.daterange').on('cancel.daterangepicker', function(ev, picker) {
-        $(this).val('');
-        $('#uniqueId').val('');
-    });
+    function updateUniqueId() {
+        const value = $dateRange.val();
+        if (!value || !value.includes(' - ')) {
+            $uniqueId.val('');
+            return;
+        }
+
+        const [fromRaw, toRaw] = value.split(' - ');
+        const from = moment(fromRaw, 'YYYY/MM/DD', true);
+        const to = moment(toRaw, 'YYYY/MM/DD', true);
+        if (!from.isValid() || !to.isValid()) {
+            $uniqueId.val('');
+            return;
+        }
+
+        const fromNormalized = from.format('YYYYMMDD');
+        const toNormalized = to.format('YYYYMMDD');
+        $uniqueId.val(`${fromNormalized}_${toNormalized}_${Date.now()}`);
+    }
+
+    function setImportControlsEnabled(enabled) {
+        $dateRange.prop('disabled', !enabled);
+        $submitImport.prop('disabled', !enabled || isImportSubmitting);
+        if (!enabled) {
+            $dateRange.val('');
+            $uniqueId.val('');
+        }
+    }
+
+    function setValidationStatus(message, type, isLoading) {
+        if (!message) {
+            $status.addClass('d-none').removeClass('alert-secondary alert-success alert-danger').html('');
+            return;
+        }
+
+        $status
+            .removeClass('d-none alert-secondary alert-success alert-danger')
+            .addClass(`alert-${type}`)
+            .html(isLoading
+                ? `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${message}`
+                : message);
+    }
+
+    function resetImportModalState() {
+        setImportControlsEnabled(false);
+        setValidationStatus('', 'secondary', false);
+        $huntFile.val('');
+        $killsFile.val('');
+    }
+
+    async function validateSelectedFiles() {
+        const hunt = $huntFile[0]?.files?.[0];
+        const kills = $killsFile[0]?.files?.[0];
+
+        if (!hunt || !kills) {
+            setImportControlsEnabled(false);
+            setValidationStatus('Upload both Hunt and Kills files to start validation.', 'secondary', false);
+            return;
+        }
+
+        setImportControlsEnabled(false);
+        setValidationStatus('Validating uploaded files...', 'secondary', true);
+
+        const formData = new FormData();
+        formData.append('huntFile', hunt);
+        formData.append('killsFile', kills);
+
+        $.ajax({
+            url: '/Home/ValidateImportFiles',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (!response.success) {
+                    setValidationStatus(response.message || 'Validation failed.', 'danger', false);
+                    return;
+                }
+
+                const huntRows = response.hunt?.parsedRows ?? 0;
+                const killRows = response.kills?.parsedRows ?? 0;
+                setValidationStatus(`Validation successful. Hunt rows: ${huntRows}, Kills rows: ${killRows}.`, 'success', false);
+
+                setImportControlsEnabled(true);
+                if (response.suggestedFromDate && response.suggestedToDate) {
+                    setDateRangeValue(response.suggestedFromDate, response.suggestedToDate);
+                }
+                updateUniqueId();
+            },
+            error: function() {
+                setValidationStatus('Validation request failed.', 'danger', false);
+                setImportControlsEnabled(false);
+            }
+        });
+    }
+
+    function loadRollbackReports() {
+        $rollbackDropdown.html('<option value="">Loading...</option>');
+        $.ajax({
+            url: '/Report/GetUploadedReports',
+            type: 'GET',
+            success: function(reports) {
+                if (!Array.isArray(reports) || reports.length === 0) {
+                    $rollbackDropdown.html('<option value="">No uploaded reports found</option>');
+                    return;
+                }
+
+                const options = ['<option value="">Select report...</option>'];
+                reports.forEach(r => {
+                    options.push(`<option value="${r.id}">${r.displayName}</option>`);
+                });
+                $rollbackDropdown.html(options.join(''));
+            },
+            error: function() {
+                $rollbackDropdown.html('<option value="">Failed to load reports</option>');
+            }
+        });
+    }
 
     // Import button click
     $('#importBtn').click(function() {
+        resetImportModalState();
+        setValidationStatus('Upload both Hunt and Kills files to start validation.', 'secondary', false);
         importModal.show();
+    });
+
+    $('#rollbackBtn').click(function() {
+        rollbackModal.show();
+        loadRollbackReports();
+    });
+
+    $huntFile.on('change', validateSelectedFiles);
+    $killsFile.on('change', validateSelectedFiles);
+    $dateRange.on('apply.daterangepicker', function(ev, picker) {
+        $(this).val(picker.startDate.format('YYYY/MM/DD') + ' - ' + picker.endDate.format('YYYY/MM/DD'));
+        updateUniqueId();
+    });
+    $dateRange.on('cancel.daterangepicker', function() {
+        $(this).val('');
+        updateUniqueId();
     });
 
     // Submit import
     $('#submitImport').click(function() {
-        const dateRange = $('#dateRange').val();
-        if (!dateRange) {
-            showAlert('Please select a date range', 'danger');
+        if (isImportSubmitting) {
             return;
         }
 
-        const dates = dateRange.split(' - ');
-        const fromDate = dates[0];
-        const toDate = dates[1];
-        const uniqueId = $('#uniqueId').val();
+        const hunt = $huntFile[0]?.files?.[0];
+        const kills = $killsFile[0]?.files?.[0];
+        const dateRange = $dateRange.val();
+        const uniqueId = $uniqueId.val();
 
-        setButtonLoading('#submitImport', true, 'Submitting...', 'Submit');
+        if (!hunt || !kills) {
+            showAlert('Upload both Hunt and Kills files.', 'danger');
+            return;
+        }
+
+        if (!dateRange || !dateRange.includes(' - ')) {
+            showAlert('Select date range before upload.', 'danger');
+            return;
+        }
+
+        const [fromRaw, toRaw] = dateRange.split(' - ');
+        const fromDate = moment(fromRaw, 'YYYY/MM/DD', true);
+        const toDate = moment(toRaw, 'YYYY/MM/DD', true);
+        if (!fromDate.isValid() || !toDate.isValid()) {
+            showAlert('Date range is invalid.', 'danger');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('huntFile', hunt);
+        formData.append('killsFile', kills);
+        formData.append('fromDate', fromDate.format('YYYY-MM-DD'));
+        formData.append('toDate', toDate.format('YYYY-MM-DD'));
+        formData.append('uniqueId', uniqueId);
+
+        isImportSubmitting = true;
+        $submitImport.prop('disabled', true);
+        setButtonLoading('#submitImport', true, 'Uploading...', 'Upload Report');
 
         $.ajax({
-            url: '/Home/ImportFromSheets',
+            url: '/Home/ImportFromFiles',
             type: 'POST',
-            data: {
-                fromDate: fromDate,
-                toDate: toDate,
-                uniqueId: uniqueId
-            },
+            data: formData,
+            processData: false,
+            contentType: false,
             success: function(response) {
-                importModal.hide();
-                showAlert(response.message, response.success ? 'success' : 'danger');
+                if (response.success) {
+                    importModal.hide();
+                    showAlert(response.message, 'success');
+                    if (typeof window.refreshAvailableWeeks === 'function') {
+                        window.refreshAvailableWeeks();
+                    }
+                } else {
+                    setValidationStatus(response.message || 'Import failed.', 'danger', false);
+                }
             },
             error: function() {
-                showAlert('Error occurred while importing Excel data', 'danger');
+                setValidationStatus('Error occurred while importing uploaded files.', 'danger', false);
             },
             complete: function() {
-                setButtonLoading('#submitImport', false, '', 'Submit');
+                isImportSubmitting = false;
+                setButtonLoading('#submitImport', false, '', 'Upload Report');
+                setImportControlsEnabled(true);
+            }
+        });
+    });
+
+    $('#confirmDeleteReport').click(function() {
+        const statsId = $rollbackDropdown.val();
+        if (!statsId) {
+            showAlert('Select a report to delete.', 'danger');
+            return;
+        }
+
+        const userConfirmed = window.confirm('Are you sure you want to permanently delete this uploaded report?');
+        if (!userConfirmed) {
+            return;
+        }
+
+        setButtonLoading('#confirmDeleteReport', true, 'Deleting...', 'Delete');
+        $.ajax({
+            url: '/Report/DeleteUploadedReport',
+            type: 'POST',
+            data: { statsId: statsId },
+            success: function(response) {
+                showAlert(response.message, response.success ? 'success' : 'danger');
+                if (response.success) {
+                    rollbackModal.hide();
+                    if (typeof window.refreshAvailableWeeks === 'function') {
+                        window.refreshAvailableWeeks();
+                    }
+                }
+            },
+            error: function() {
+                showAlert('Error occurred while deleting report.', 'danger');
+            },
+            complete: function() {
+                setButtonLoading('#confirmDeleteReport', false, '', 'Delete');
             }
         });
     });

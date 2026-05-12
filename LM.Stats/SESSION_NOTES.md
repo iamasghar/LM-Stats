@@ -111,3 +111,97 @@
 - jsPDF Helvetica does not support Unicode arrows - must use ASCII equivalents (^, v, >) in PDF cell text
 - `innerText` on a DOM cell decodes HTML entities to Unicode before jsPDF reads them
 - TomSelect must be destroyed and re-initialized (`playerSelector.destroy()`) before re-creating to avoid duplicate instances
+
+---
+
+## 2026-05-12 Upload + Rollback Implementation Context (Mandatory Notes)
+
+### Scope Delivered
+- Replaced import-from-directory workflow with popup file upload workflow.
+- Added support for BOTH Hunt and Kills uploads in CSV/XLSX formats.
+- Added server-side validation flow before import submission.
+- Added rollback/delete uploaded report workflow in navbar with DB-loaded report list and confirmation.
+- Kept weekly report refresh in sync after successful import/delete.
+
+### Files Changed
+- `Services/ExcelStatsService.cs`
+- `Controllers/HomeController.cs`
+- `Controllers/ReportController.cs`
+- `Views/Shared/_Layout.cshtml`
+- `wwwroot/js/site.js`
+- `Views/Report/Index.cshtml`
+
+### Backend Changes
+#### 1) Stream-based file processing (CSV + XLSX)
+- Added uploaded-file parse/validate support in `ExcelStatsService`.
+- Added validation methods for each file type:
+  - `ValidateHuntFileAsync(IFormFile)`
+  - `ValidateKillsFileAsync(IFormFile)`
+- Added file-to-model parse methods:
+  - `ReadHuntsFromFileAsync(IFormFile)`
+  - `ReadKillsFromFileAsync(IFormFile)`
+- Added required header groups for Hunt/Kills with synonyms.
+
+#### 2) CSV parsing robustness
+- Replaced custom simplistic CSV parser with `TextFieldParser`.
+- Added delimiter auto-detection (comma/semicolon/tab).
+- Supports quoted values correctly and prevents partial imports.
+
+#### 3) Date validation tolerance for hunt timestamps
+- Validation no longer hard-fails on non-critical odd datetime strings in Hunt file.
+- Suggested range still uses valid parsed dates when available.
+
+#### 4) Import/validate endpoints
+- Added `POST /Home/ValidateImportFiles`.
+- Added `POST /Home/ImportFromFiles` (file-based import path).
+- Added duplicate date-range protection before save.
+- Explicitly parses posted `fromDate`/`toDate` as `yyyy-MM-dd`.
+
+#### 5) TypeLoadException hardening
+- Replaced anonymous JSON response objects in import/validate actions with concrete response classes.
+- This avoids runtime anonymous-type load mismatch after iterative edits/hot reload.
+
+#### 6) Rollback/delete APIs
+- Added `GET /Report/GetUploadedReports` to populate rollback dropdown.
+- Added `POST /Report/DeleteUploadedReport` for hard-delete selected upload.
+- Delete is transactional and logs successful/failure operations.
+
+### UI/UX Changes
+#### 1) Import popup layout
+- Popup now contains:
+  - Hunt file input (.csv/.xlsx)
+  - Kills file input (.csv/.xlsx)
+  - Validation status region (inside popup)
+  - Date range control
+  - Read-only unique identifier
+- Upload action stays in popup on errors (state persists).
+
+#### 2) Date range behavior (latest requested behavior)
+- Restored single date-range control (not separate from/to fields).
+- Date picker now:
+  - auto-applies once both dates are selected (`autoApply: true`)
+  - opens upward in modal (`drops: 'up'`) to avoid bottom clipping
+  - uses modal parent (`parentEl: '#importModal'`)
+
+#### 3) Upload button behavior (latest requested behavior)
+- Added strict in-flight guard `isImportSubmitting` in `site.js`.
+- Prevents double-click and duplicate submit while request is running.
+- Button shows spinner/loading text while uploading.
+- Button re-enables only after request completes.
+
+#### 4) Rollback UI
+- Added navbar action: reset/delete uploaded report.
+- Added modal with DB-loaded report dropdown and explicit confirmation flow.
+
+### Report Page Sync
+- Added global `refreshAvailableWeeks` function in `Views/Report/Index.cshtml`.
+- Called after successful import/delete so week dropdown updates immediately.
+
+### Important Runtime Note
+- Build failures seen during session were due to file lock by running process (`LM.Stats.exe` / dll), not compile errors in changed files.
+- Stopping running app process and rebuilding resolved lock-related failures.
+
+### Remaining Known Non-blocking Warnings
+- Project has existing nullable warnings in older code paths (not newly introduced by this change set).
+- No functional blocker for import/rollback workflows from these warnings.
+

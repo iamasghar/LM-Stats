@@ -8,23 +8,49 @@ using System.Threading.Tasks;
 using LM.Stats.Data.Extensions;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using LM.Stats.Data;
 
 namespace LM.Stats.Controllers;
 
 public class HomeController : Controller
 {
+    private sealed class ImportFileStatusResponse
+    {
+        public bool IsValid { get; set; }
+        public string ErrorMessage { get; set; } = string.Empty;
+        public int ParsedRows { get; set; }
+    }
+
+    private sealed class ValidateImportFilesResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public ImportFileStatusResponse Hunt { get; set; } = new();
+        public ImportFileStatusResponse Kills { get; set; } = new();
+        public string? SuggestedFromDate { get; set; }
+        public string? SuggestedToDate { get; set; }
+    }
+
+    private sealed class ImportActionResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
     private readonly ExcelStatsService _excelStatsService;
     private readonly DatabaseService _dbService;
     private readonly GoogleDriveService _driveService;
     private readonly IConfiguration _config;
     private readonly StatsProcessorService _statsProcessor;
+    private readonly AppDbContext _context;
 
     public HomeController(
         ExcelStatsService excelStatsService,
         DatabaseService dbService,
         GoogleDriveService driveService,
         IConfiguration config,
-        StatsProcessorService statsProcessor
+        StatsProcessorService statsProcessor,
+        AppDbContext context
         )
     {
         _excelStatsService = excelStatsService;
@@ -32,6 +58,7 @@ public class HomeController : Controller
         _driveService = driveService;
         _config = config;
         _statsProcessor = statsProcessor;
+        _context = context;
     }
     
     public IActionResult Index()
@@ -40,28 +67,112 @@ public class HomeController : Controller
     }
     
     [HttpPost]
-    public async Task<IActionResult> ImportFromSheets(DateTime fromDate, DateTime toDate, string uniqueId)
+    public async Task<IActionResult> ValidateImportFiles(IFormFile huntFile, IFormFile killsFile)
     {
         try
         {
-            var stats = new StatsInfo
+            var huntValidation = await _excelStatsService.ValidateHuntFileAsync(huntFile);
+            var killsValidation = await _excelStatsService.ValidateKillsFileAsync(killsFile);
+
+            var firstError = !huntValidation.IsValid
+                ? huntValidation.ErrorMessage
+                : (!killsValidation.IsValid ? killsValidation.ErrorMessage : string.Empty);
+
+            var isValid = huntValidation.IsValid && killsValidation.IsValid;
+            var suggestedFromDate = huntValidation.SuggestedFromDate;
+            var suggestedToDate = huntValidation.SuggestedToDate;
+
+            var response = new ValidateImportFilesResponse
             {
-                FromDate = fromDate,
-                ToDate = toDate,
-                UniqueIdentifier = uniqueId
+                Success = isValid,
+                Message = isValid ? "Files validated successfully." : firstError,
+                Hunt = new ImportFileStatusResponse
+                {
+                    IsValid = huntValidation.IsValid,
+                    ErrorMessage = huntValidation.ErrorMessage,
+                    ParsedRows = huntValidation.ParsedRows
+                },
+                Kills = new ImportFileStatusResponse
+                {
+                    IsValid = killsValidation.IsValid,
+                    ErrorMessage = killsValidation.ErrorMessage,
+                    ParsedRows = killsValidation.ParsedRows
+                },
+                SuggestedFromDate = suggestedFromDate?.ToString("yyyy-MM-dd"),
+                SuggestedToDate = suggestedToDate?.ToString("yyyy-MM-dd")
             };
 
-            var hunts = await _excelStatsService.ReadHuntsAsync();
-            var kills = await _excelStatsService.ReadKillsAsync();
+            return Json(response);
+        }
+        catch (Exception ex)
+        {
+            return Json(new ImportActionResponse
+            {
+                Success = false,
+                Message = $"Validation failed: {ex.Message}"
+            });
+        }
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ImportFromFiles(IFormFile huntFile, IFormFile killsFile, string fromDate, string toDate, string uniqueId)
+    {
+        try
+        {
+            var huntValidation = await _excelStatsService.ValidateHuntFileAsync(huntFile);
+            var killsValidation = await _excelStatsService.ValidateKillsFileAsync(killsFile);
+            if (!huntValidation.IsValid || !killsValidation.IsValid)
+            {
+                var firstError = !huntValidation.IsValid ? huntValidation.ErrorMessage : killsValidation.ErrorMessage;
+                return Json(new ImportActionResponse { Success = false, Message = firstError });
+            }
+
+            if (!DateTime.TryParseExact(fromDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedFrom))
+            {
+                return Json(new ImportActionResponse { Success = false, Message = "From date is invalid." });
+            }
+
+            if (!DateTime.TryParseExact(toDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedTo))
+            {
+                return Json(new ImportActionResponse { Success = false, Message = "To date is invalid." });
+            }
+
+            var from = parsedFrom.Date;
+            var to = parsedTo.Date;
+            if (to < from)
+            {
+                return Json(new ImportActionResponse { Success = false, Message = "To date must be greater than or equal to from date." });
+            }
+
+            var duplicateExists = await _context.Stats
+                .AnyAsync(s => s.FromDate >= from && s.FromDate < from.AddDays(1)
+                            && s.ToDate >= to && s.ToDate < to.AddDays(1));
+
+            if (duplicateExists)
+            {
+                return Json(new ImportActionResponse { Success = false, Message = "A report for the selected date range already exists." });
+            }
+
+            var stats = new StatsInfo
+            {
+                FromDate = from,
+                ToDate = to,
+                UniqueIdentifier = string.IsNullOrWhiteSpace(uniqueId)
+                    ? $"{from:yyyyMMdd}_{to:yyyyMMdd}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}"
+                    : uniqueId
+            };
+
+            var hunts = await _excelStatsService.ReadHuntsFromFileAsync(huntFile);
+            var kills = await _excelStatsService.ReadKillsFromFileAsync(killsFile);
             var otherStats = new List<OtherStat>();
             
             var stateInfoId = await _dbService.SaveStatsData(stats, hunts, kills, otherStats);
             await _statsProcessor.ProcessStatsAsync(stateInfoId.stateId);
-            return Json(new { success = true, message = "Data imported successfully from Excel files!" });
+            return Json(new ImportActionResponse { Success = true, Message = "Data imported successfully from uploaded files." });
         }
         catch (Exception ex)
         {
-            return Json(new { success = false, message = $"Error: {ex.Message}" });
+            return Json(new ImportActionResponse { Success = false, Message = $"Error: {ex.Message}" });
         }
     }
     
