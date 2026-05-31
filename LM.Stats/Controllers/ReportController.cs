@@ -251,16 +251,19 @@ public class ReportController : Controller
     public async Task<IActionResult> SearchPlayers(string term = "", int take = 20)
     {
         term = (term ?? string.Empty).Trim();
-        take = take <= 0 ? 20 : Math.Min(take, 50);
+        take = take <= 0 ? 20 : Math.Min(take, 5000);
 
-        var query = _context.StatsSummaries.AsNoTracking();
+        var query = _context.StatsSummaries.AsNoTracking().Select(s => s.Name)
+            .Concat(_context.Hunts.AsNoTracking().Select(h => h.Name))
+            .Concat(_context.Kills.AsNoTracking().Select(k => k.Name))
+            .Concat(_context.Kills.AsNoTracking().Select(k => k.OldName));
+
         if (!string.IsNullOrWhiteSpace(term))
         {
-            query = query.Where(s => s.Name.Contains(term));
+            query = query.Where(n => n.Contains(term));
         }
 
         var names = await query
-            .Select(s => s.Name)
             .Where(n => !string.IsNullOrWhiteSpace(n))
             .Distinct()
             .OrderBy(n => n)

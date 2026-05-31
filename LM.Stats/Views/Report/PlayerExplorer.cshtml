@@ -416,6 +416,7 @@
         let killsChart = null;
         let huntChart = null;
         let playerSelector = null;
+        let pendingPlayerName = '';
 
         function formatNumber(value) {
             return Number(value || 0).toLocaleString();
@@ -491,8 +492,14 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            pendingPlayerName = (params.get('name') || '').trim();
             await hydrateNames();
             initializePlayerSelector();
+            if (pendingPlayerName && playerSelector) {
+                playerSelector.setValue(pendingPlayerName, true);
+                await loadPlayerDetails();
+            }
         });
 
         async function hydrateNames() {

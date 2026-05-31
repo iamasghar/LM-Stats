@@ -68,6 +68,17 @@
     #dataInsights .card { border: 1px solid #dbe4f0; }
     .sortable-header { cursor: pointer; user-select: none; }
     .reset-sort-header { cursor: pointer; user-select: none; }
+    .player-link {
+        background: transparent;
+        border: 0;
+        color: inherit;
+        font: inherit;
+        padding: 0;
+        text-align: left;
+    }
+    .player-link:hover {
+        cursor: pointer;
+    }
     .dropdown-with-clear {
         position: relative;
     }
@@ -106,6 +117,37 @@
     }
     .dropdown-clear-icon::before {
         content: '\00D7';
+    }
+    .player-explorer-modal-dialog {
+        max-width: 96vw;
+    }
+    .player-explorer-modal-content {
+        height: 92vh;
+    }
+    .player-explorer-modal-body {
+        padding: 0;
+        overflow: hidden;
+    }
+    .player-explorer-frame {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+    }
+    .report-nav-search {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .report-nav-search-wrap {
+        width: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition: width 0.22s ease, opacity 0.22s ease;
+    }
+    .report-nav-search-wrap.open {
+        width: 220px;
+        opacity: 1;
     }
 </style>
 
@@ -248,6 +290,30 @@
     </div>
 </div>
 
+<div class="modal fade" id="playerExplorerModal" tabindex="-1" aria-labelledby="playerExplorerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered player-explorer-modal-dialog">
+        <div class="modal-content player-explorer-modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title" id="playerExplorerModalLabel">Player Explorer</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="btn-group" id="playerExplorerModalExportGroup" style="display:none;">
+                        <button type="button" class="btn btn-danger btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Export</button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item" type="button" onclick="exportPlayerModalPdf()">PDF</button></li>
+                            <li><button class="dropdown-item" type="button" onclick="exportPlayerModalJpg()">Image (JPG)</button></li>
+                            <li><button class="dropdown-item" type="button" onclick="printPlayerModal()">Print</button></li>
+                        </ul>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body player-explorer-modal-body">
+                <iframe id="playerExplorerFrame" class="player-explorer-frame" src="about:blank" title="Player Explorer"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.24/jspdf.plugin.autotable.min.js"></script>
@@ -259,7 +325,45 @@
         let weeksToShow = [];
         let availableWeeks = [];
         let previousReportMap = new Map();
-        let currentSort = { key: null, direction: 'desc' };
+        let currentSort = { key: 'history', direction: 'asc' };
+        let pageBindingsInitialized = false;
+        let playerExplorerModalInstance = null;
+        let reportSearchTerm = '';
+
+        function getPlayerExplorerFrameWindow() {
+            const frameEl = document.getElementById('playerExplorerFrame');
+            if (!frameEl) return null;
+            return frameEl.contentWindow || null;
+        }
+
+        function withExplorerWindow(action) {
+            const win = getPlayerExplorerFrameWindow();
+            if (!win) return;
+            action(win);
+        }
+
+        function exportPlayerModalPdf() {
+            withExplorerWindow((win) => {
+                if (typeof win.exportPlayerPdf === 'function') {
+                    win.exportPlayerPdf();
+                }
+            });
+        }
+
+        function exportPlayerModalJpg() {
+            withExplorerWindow((win) => {
+                if (typeof win.exportPlayerJpg === 'function') {
+                    win.exportPlayerJpg();
+                }
+            });
+        }
+
+        function printPlayerModal() {
+            withExplorerWindow((win) => {
+                win.focus();
+                win.print();
+            });
+        }
 
         const summaryCategories = [
             { key: 'topKills', title: 'Top Kills', valueField: 'killsDiff', suffix: 'kills' },
@@ -334,31 +438,50 @@
 
         window.refreshAvailableWeeks = refreshWeekDropdown;
 
-        document.addEventListener('DOMContentLoaded', function() {
+        async function initializeReportPage(autoGenerate) {
             applySavedStaticFilters();
-            refreshWeekDropdown();
+            await refreshWeekDropdown();
 
-            setupSelectAll('statusSelectAll', '.status-filter');
-            setupSelectAll('headerSelectAll', '.header-filter');
-            setupSelectAll('summarySelectAll', '.summary-filter');
-            setupSearchHandlers();
-            document.getElementById('weekDropdown')?.addEventListener('change', () => {
-                currentWeek = document.getElementById('weekDropdown')?.value || '';
-                saveState();
-            });
-
-            document.querySelectorAll('.status-filter, .header-filter, .summary-filter').forEach(cb => {
-                cb.addEventListener('change', () => {
-                    if (cb.id === 'headerHistory') {
-                        resetSort(false);
-                    }
-                    updateAllDropdownButtonTexts();
+            if (!pageBindingsInitialized) {
+                bindReportNavSearch();
+                setupSelectAll('statusSelectAll', '.status-filter');
+                setupSelectAll('headerSelectAll', '.header-filter');
+                setupSelectAll('summarySelectAll', '.summary-filter');
+                setupSearchHandlers();
+                document.getElementById('weekDropdown')?.addEventListener('change', () => {
+                    currentWeek = document.getElementById('weekDropdown')?.value || '';
                     saveState();
-                    if (allData && Object.keys(allData).length > 0) displayReport(allData);
+                    generateReport();
                 });
-            });
+
+                document.querySelectorAll('.status-filter, .header-filter, .summary-filter').forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        if (cb.id === 'headerHistory') {
+                            resetSort(false);
+                        }
+                        updateAllDropdownButtonTexts();
+                        saveState();
+                        if (allData && Object.keys(allData).length > 0) displayReport(allData);
+                    });
+                });
+
+                pageBindingsInitialized = true;
+            }
 
             updateAllDropdownButtonTexts();
+            if (autoGenerate) {
+                await generateReport();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeReportPage(true);
+        });
+
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                initializeReportPage(true);
+            }
         });
 
         function setupSearchHandlers() {
@@ -371,6 +494,46 @@
                         item.style.display = label.includes(query) ? '' : 'none';
                     });
                 });
+            });
+        }
+
+        function bindReportNavSearch() {
+            const toggle = document.getElementById('reportNavSearchToggle');
+            const wrap = document.getElementById('reportNavSearchWrap');
+            const input = document.getElementById('reportNavSearchInput');
+            if (!toggle || !wrap || !input || toggle.dataset.bound === '1') return;
+
+            toggle.dataset.bound = '1';
+
+            toggle.addEventListener('click', function() {
+                const isOpen = wrap.classList.toggle('open');
+                if (isOpen) {
+                    input.focus();
+                } else {
+                    input.value = '';
+                    reportSearchTerm = '';
+                    if (allData && Object.keys(allData).length > 0) {
+                        displayReport(allData);
+                    }
+                }
+            });
+
+            input.addEventListener('input', function() {
+                reportSearchTerm = (input.value || '').trim().toLowerCase();
+                if (allData && Object.keys(allData).length > 0) {
+                    displayReport(allData);
+                }
+            });
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    wrap.classList.remove('open');
+                    input.value = '';
+                    reportSearchTerm = '';
+                    if (allData && Object.keys(allData).length > 0) {
+                        displayReport(allData);
+                    }
+                }
             });
         }
 
@@ -515,7 +678,7 @@
         }
 
         function resetSort(shouldRender) {
-            currentSort = { key: null, direction: 'desc' };
+            currentSort = { key: 'history', direction: 'asc' };
             if (shouldRender && allData && Object.keys(allData).length > 0) {
                 displayReport(allData);
             }
@@ -549,6 +712,14 @@
         }
 
         function compareRows(a, b, key) {
+            if (key === 'history') {
+                const zoneOrder = { Green: 0, Yellow: 1, Red: 2, New: 3, Left: 4 };
+                const av = zoneOrder[a.zone] ?? 99;
+                const bv = zoneOrder[b.zone] ?? 99;
+                if (av !== bv) return av - bv;
+                return (a.name || '').localeCompare(b.name || '');
+            }
+
             if (key === 'name') {
                 return (a.name || '').localeCompare((b.name || ''));
             }
@@ -597,6 +768,84 @@
             const points = values.map((v, i) => `${pad + (i * step)},${height - pad - ((v / 3) * (height - (pad * 2)))}`).join(" ");
             return `<div class="mini-sparkline" title="History trend line (Blue): Green=high, Yellow=medium, Red=low"><svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><polyline points="${points}" fill="none" stroke="#0d6efd" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg></div>`;
         }
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function openPlayerExplorer(name) {
+            if (!name) return;
+            const url = `/Report/PlayerExplorer?name=${encodeURIComponent(name)}&embedded=1`;
+            const modalEl = document.getElementById('playerExplorerModal');
+            const frameEl = document.getElementById('playerExplorerFrame');
+            const titleEl = document.getElementById('playerExplorerModalLabel');
+            const exportGroupEl = document.getElementById('playerExplorerModalExportGroup');
+            if (!modalEl || !frameEl || !titleEl || !window.bootstrap?.Modal) return;
+
+            const applyEmbeddedStyles = () => {
+                try {
+                    const doc = frameEl.contentDocument;
+                    if (!doc) return;
+
+                    const styleId = 'embedded-player-explorer-style';
+                    let styleTag = doc.getElementById(styleId);
+                    if (!styleTag) {
+                        styleTag = doc.createElement('style');
+                        styleTag.id = styleId;
+                        doc.head.appendChild(styleTag);
+                    }
+
+                    styleTag.textContent = `
+                        header,
+                        footer,
+                        #alerts,
+                        .explorer-hero,
+                        .explorer-controls {
+                            display: none !important;
+                        }
+
+                        body {
+                            background: #f8fafc !important;
+                        }
+
+                        main[role="main"] {
+                            padding-bottom: 0 !important;
+                        }
+
+                        .container.mt-3.explorer-page {
+                            margin-top: 0 !important;
+                            padding-top: 0.5rem !important;
+                        }
+                    `;
+
+                    if (exportGroupEl) {
+                        exportGroupEl.style.display = 'inline-flex';
+                    }
+                } catch {
+                    // Ignore cross-document styling issues.
+                }
+            };
+
+            if (!playerExplorerModalInstance) {
+                playerExplorerModalInstance = new bootstrap.Modal(modalEl);
+                modalEl.addEventListener('hidden.bs.modal', () => {
+                    frameEl.src = 'about:blank';
+                    if (exportGroupEl) {
+                        exportGroupEl.style.display = 'none';
+                    }
+                });
+            }
+
+            titleEl.textContent = `Player Explorer - ${name}`;
+            frameEl.onload = applyEmbeddedStyles;
+            frameEl.src = url;
+            playerExplorerModalInstance.show();
+        }
+
         function populateIgnorePlayers(data) {
             const persistedIgnored = new Set((getSavedState().ignoredPlayers || []).map(x => (x || '').toLowerCase()));
             const currentIgnored = new Set([ ...Array.from(getIgnoredPlayerSet()), ...Array.from(persistedIgnored) ]);
@@ -687,6 +936,8 @@
 
         async function generateReport() {
             const week = document.getElementById('weekDropdown').value;
+            if (!week) return;
+
             currentWeek = week;
             resetSort(false);
 
@@ -747,14 +998,14 @@
                 ...filteredLeftPlayers.map(r => ({ ...r, __bg: '#e0e0e0' }))
             ];
 
-            if (currentSort.key) {
-                rowsWithStyle.sort((a, b) => {
-                    const result = compareRows(a, b, currentSort.key);
-                    return currentSort.direction === 'asc' ? result : -result;
-                });
-            } else {
-                rowsWithStyle.sort((a, b) => (b.killsDiff || 0) - (a.killsDiff || 0));
-            }
+            const searchedRows = !reportSearchTerm
+                ? rowsWithStyle
+                : rowsWithStyle.filter(r => (r.name || '').toLowerCase().includes(reportSearchTerm));
+
+            searchedRows.sort((a, b) => {
+                const result = compareRows(a, b, currentSort.key);
+                return currentSort.direction === 'asc' ? result : -result;
+            });
 
             let table = `
                 <table class="table table-bordered table-hover">
@@ -767,7 +1018,7 @@
                             ${col.troopsLost ? `<th class="sortable-header" data-sort-key="troopsLostDiff">Troops Lost${sortIndicator('troopsLostDiff')}</th>` : ''}
                             ${col.hunt ? `<th class="sortable-header" data-sort-key="huntPoints">Hunt (%)${sortIndicator('huntPoints')}</th>` : ''}
                             ${col.purchase ? `<th class="sortable-header" data-sort-key="purchasePoints">Purchase${sortIndicator('purchasePoints')}</th>` : ''}
-                            ${col.history ? '<th class="reset-sort-header" title="Click to reset sort">History</th>' : ''}
+                            ${col.history ? `<th class="sortable-header" data-sort-key="history">History${sortIndicator('history')}</th>` : ''}
                         </tr>
                     </thead>
                     <tbody>`;
@@ -818,7 +1069,7 @@
                 return `
                     <tr style="background-color: ${bgColor}">
                         <td>${serialNumber++}</td>
-                        ${col.name ? `<td>${row.name}</td>` : ''}
+                        ${col.name ? `<td><button type="button" class="player-link" data-player-name="${encodeURIComponent(row.name || '')}" onclick="openPlayerExplorer(decodeURIComponent(this.dataset.playerName || ''))">${escapeHtml(row.name)}</button></td>` : ''}
                         ${col.kills ? `<td>${formatDiff(row.killsDiff, row.killsPercentage, row.killsPercentage >= 100)}</td>` : ''}
                         ${col.edm ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.edmDiff.toLocaleString()}${trendByPrevious(row, 'edmDiff')}`}</td>` : ''}
                         ${col.troopsLost ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.troopsLostDiff.toLocaleString()}${trendByPrevious(row, 'troopsLostDiff')}`}</td>` : ''}
@@ -828,7 +1079,7 @@
                     </tr>`;
             };
 
-            rowsWithStyle.forEach(r => table += formatRow(r, r.__bg));
+            searchedRows.forEach(r => table += formatRow(r, r.__bg));
 
             table += `</tbody></table>`;
             reportTable.innerHTML = table;

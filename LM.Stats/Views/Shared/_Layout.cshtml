@@ -27,6 +27,25 @@
                         </li>
                     </ul>
 
+                    @{
+                        var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+                        var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+                        var isReportIndex = string.Equals(currentController, "Report", StringComparison.OrdinalIgnoreCase)
+                                            && string.Equals(currentAction, "Index", StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    @if (isReportIndex)
+                    {
+                        <div class="report-nav-search me-2">
+                            <button id="reportNavSearchToggle" class="btn btn-outline-secondary btn-sm" type="button" aria-label="Search report table" title="Search report table">
+                                &#128269;
+                            </button>
+                            <div id="reportNavSearchWrap" class="report-nav-search-wrap">
+                                <input id="reportNavSearchInput" type="text" class="form-control form-control-sm" placeholder="Search players..." aria-label="Search players" />
+                            </div>
+                        </div>
+                    }
+
                     <div class="d-flex flex-wrap gap-2">
                         <button id="importBtn" class="btn btn-primary btn-sm">Import from Files (CSV/XLSX)</button>
                         <button id="rollbackBtn" class="btn btn-outline-danger btn-sm">Reset/Delete Uploaded Report</button>
