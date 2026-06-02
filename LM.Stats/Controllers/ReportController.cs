@@ -1,5 +1,6 @@
 // Controllers/ReportController.cs
 using LM.Stats.Data;
+using LM.Stats.Data.Extensions;
 using LM.Stats.Data.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,14 @@ namespace LM.Stats.Controllers;
 
 public class ReportController : Controller
 {
+    public sealed class UpdateReportValueRequest
+    {
+        public string Week { get; set; } = string.Empty;
+        public long UserId { get; set; }
+        public string Field { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+    }
+
     private readonly AppDbContext _context;
     private readonly ILogger<ReportController> _logger;
 
@@ -245,6 +254,130 @@ public class ReportController : Controller
             .ToListAsync();
 
         return Json(trends);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateReportValue([FromBody] UpdateReportValueRequest request)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.Week) || request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Field))
+        {
+            return Json(new { success = false, message = "Update request is invalid." });
+        }
+
+        var normalizedField = request.Field.Trim();
+        var stats = await _context.Stats
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.UniqueIdentifier == request.Week);
+
+        if (stats == null)
+        {
+            return Json(new { success = false, message = "Selected report was not found." });
+        }
+
+        var summary = await _context.StatsSummaries
+            .FirstOrDefaultAsync(s => s.StatsId == stats.Id && s.UserId == request.UserId);
+
+        if (summary == null)
+        {
+            return Json(new { success = false, message = "Selected player row was not found." });
+        }
+
+        switch (normalizedField)
+        {
+            case "killsDiff":
+            {
+                var parsed = request.Value.ToSafeLong();
+                if (!parsed.HasValue)
+                {
+                    return Json(new { success = false, message = "Kills value is invalid." });
+                }
+
+                summary.KillsDifference = parsed.Value;
+                break;
+            }
+            case "edmDiff":
+            {
+                var parsed = request.Value.ToSafeLong();
+                if (!parsed.HasValue)
+                {
+                    return Json(new { success = false, message = "EDM value is invalid." });
+                }
+
+                summary.EDMDifference = parsed.Value;
+                break;
+            }
+            case "troopsLostDiff":
+            {
+                var parsed = request.Value.ToSafeLong();
+                if (!parsed.HasValue)
+                {
+                    return Json(new { success = false, message = "Troops Lost value is invalid." });
+                }
+
+                summary.TroopsLostDifference = parsed.Value;
+                break;
+            }
+            case "huntPoints":
+            {
+                var parsed = request.Value.ToSafeInt();
+                if (!parsed.HasValue)
+                {
+                    return Json(new { success = false, message = "Hunt value is invalid." });
+                }
+
+                summary.HuntPoints = parsed.Value;
+                break;
+            }
+            case "purchasePoints":
+            {
+                var parsed = request.Value.ToSafeInt();
+                if (!parsed.HasValue)
+                {
+                    return Json(new { success = false, message = "Purchase value is invalid." });
+                }
+
+                summary.PurchasePoints = parsed.Value;
+                break;
+            }
+            default:
+                return Json(new { success = false, message = "This field cannot be edited." });
+        }
+
+        var huntGoal = _context.Configs.FirstOrDefault(c => c.Key == "HuntGoal")?.Value.ToSafeDecimal() ?? 1m;
+        var purchaseGoal = _context.Configs.FirstOrDefault(c => c.Key == "PurchaseGoal")?.Value.ToSafeDecimal() ?? 1m;
+        var killsGoal = _context.Configs.FirstOrDefault(c => c.Key == "KillsGoal")?.Value.ToSafeDecimal() ?? 1m;
+
+        summary.KillsPercentage = killsGoal > 0 ? (summary.KillsDifference / killsGoal) * 100m : 0m;
+        summary.HuntPercentage = huntGoal > 0 ? (summary.HuntPoints / huntGoal) * 100m : 0m;
+        summary.PurchasePercentage = purchaseGoal > 0 ? (summary.PurchasePoints / purchaseGoal) * 100m : 0m;
+
+        if (!string.Equals(summary.Zone, "New", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(summary.Zone, "Left", StringComparison.OrdinalIgnoreCase))
+        {
+            var goalsMet = 0;
+            if (summary.HuntPercentage >= 95m)
+            {
+                goalsMet++;
+            }
+
+            if (summary.KillsPercentage >= 95m)
+            {
+                goalsMet++;
+            }
+
+            summary.Zone = goalsMet switch
+            {
+                2 => "Green",
+                1 => "Yellow",
+                _ => "Red"
+            };
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Updated report value {Field} for user {UserId} in week {Week}.", normalizedField, request.UserId, request.Week);
+
+        return Json(new { success = true });
     }
 
     [HttpGet]

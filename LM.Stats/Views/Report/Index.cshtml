@@ -134,6 +134,28 @@
         border: 0;
         display: block;
     }
+    .editable-cell {
+        cursor: text;
+        position: relative;
+    }
+    .editable-cell.editing {
+        padding: 0.12rem 0.24rem !important;
+    }
+    .inline-edit-input {
+        width: 100%;
+        min-width: 70px;
+        border: 1px solid #93c5fd;
+        border-radius: 0.4rem;
+        padding: 0.18rem 0.42rem;
+        font: inherit;
+        line-height: 1.2;
+        color: #1f2937;
+        background: #fff;
+        box-shadow: 0 0 0 0.12rem rgba(13, 110, 253, 0.14);
+    }
+    .inline-edit-input:focus {
+        outline: none;
+    }
     .report-nav-search {
         display: inline-flex;
         align-items: center;
@@ -329,6 +351,7 @@
         let pageBindingsInitialized = false;
         let playerExplorerModalInstance = null;
         let reportSearchTerm = '';
+        let activeInlineEditCell = null;
 
         function getPlayerExplorerFrameWindow() {
             const frameEl = document.getElementById('playerExplorerFrame');
@@ -495,6 +518,110 @@
                     });
                 });
             });
+        }
+
+        function bindInlineEditHandlers() {
+            document.querySelectorAll('#reportTable td.editable-cell').forEach(cell => {
+                if (cell.dataset.bound === '1') return;
+                cell.dataset.bound = '1';
+                cell.addEventListener('dblclick', () => beginInlineEdit(cell));
+            });
+        }
+
+        function beginInlineEdit(cell) {
+            if (!cell || cell.classList.contains('editing')) return;
+            const field = cell.dataset.field;
+            const userId = cell.dataset.userId;
+            const rawValue = cell.dataset.rawValue ?? '';
+            if (!field || !userId) return;
+
+            if (activeInlineEditCell && activeInlineEditCell !== cell) {
+                cancelInlineEdit(activeInlineEditCell);
+            }
+
+            activeInlineEditCell = cell;
+            cell.classList.add('editing');
+            cell.dataset.originalHtml = cell.innerHTML;
+            cell.innerHTML = `<input type="text" class="inline-edit-input" value="${escapeHtml(rawValue)}" />`;
+
+            const input = cell.querySelector('input');
+            if (!input) return;
+
+            input.focus();
+            input.select();
+
+            input.addEventListener('keydown', async (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    await saveInlineEdit(cell, input.value);
+                }
+
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cancelInlineEdit(cell);
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                if (cell.classList.contains('editing')) {
+                    cancelInlineEdit(cell);
+                }
+            });
+        }
+
+        function cancelInlineEdit(cell) {
+            if (!cell) return;
+            cell.classList.remove('editing');
+            if (cell.dataset.originalHtml) {
+                cell.innerHTML = cell.dataset.originalHtml;
+                delete cell.dataset.originalHtml;
+            }
+            if (activeInlineEditCell === cell) {
+                activeInlineEditCell = null;
+            }
+        }
+
+        async function saveInlineEdit(cell, value) {
+            const field = cell.dataset.field;
+            const userId = Number(cell.dataset.userId || 0);
+            if (!field || !userId || !currentWeek) {
+                cancelInlineEdit(cell);
+                return;
+            }
+
+            const trimmedValue = (value || '').trim();
+            if (!trimmedValue.length) {
+                cancelInlineEdit(cell);
+                return;
+            }
+
+            try {
+                const response = await fetch('/Report/UpdateReportValue', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        week: currentWeek,
+                        userId,
+                        field,
+                        value: trimmedValue
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    window.alert(result.message || 'Failed to update value.');
+                    cancelInlineEdit(cell);
+                    return;
+                }
+
+                activeInlineEditCell = null;
+                await generateReport();
+            } catch {
+                window.alert('Failed to update value.');
+                cancelInlineEdit(cell);
+            }
         }
 
         function bindReportNavSearch() {
@@ -1045,6 +1172,14 @@
 
             const formatPercentage = (value) => Math.round(value) + '%';
 
+            const editableCellHtml = (row, field, rawValue, displayHtml) => {
+                if (rawValue === null || rawValue === undefined) {
+                    return `<td>${displayHtml}</td>`;
+                }
+
+                return `<td class="editable-cell" data-user-id="${row.userId}" data-field="${field}" data-raw-value="${escapeHtml(rawValue)}" title="Double-click to edit">${displayHtml}</td>`;
+            };
+
             const trendByPrevious = (row, field) => {
                 if (!col.historyIndicators) return '';
                 const previous = previousReportMap.get(getRowKey(row));
@@ -1070,11 +1205,11 @@
                     <tr style="background-color: ${bgColor}">
                         <td>${serialNumber++}</td>
                         ${col.name ? `<td><button type="button" class="player-link" data-player-name="${encodeURIComponent(row.name || '')}" onclick="openPlayerExplorer(decodeURIComponent(this.dataset.playerName || ''))">${escapeHtml(row.name)}</button></td>` : ''}
-                        ${col.kills ? `<td>${formatDiff(row.killsDiff, row.killsPercentage, row.killsPercentage >= 100)}</td>` : ''}
-                        ${col.edm ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.edmDiff.toLocaleString()}${trendByPrevious(row, 'edmDiff')}`}</td>` : ''}
-                        ${col.troopsLost ? `<td>${row.isNewPlayer || row.hasLeft ? '-' : `${row.troopsLostDiff.toLocaleString()}${trendByPrevious(row, 'troopsLostDiff')}`}</td>` : ''}
-                        ${col.hunt ? `<td>${formatDiff2(row.huntPoints, row.huntPercentage, row.huntPercentage >= 100)}</td>` : ''}
-                        ${col.purchase ? `<td>${row.purchasePoints.toLocaleString()}${trendByPrevious(row, 'purchasePoints')}</td>` : ''}
+                        ${col.kills ? (row.isNewPlayer || row.hasLeft ? `<td>-</td>` : editableCellHtml(row, 'killsDiff', row.killsDiff, formatDiff(row.killsDiff, row.killsPercentage, row.killsPercentage >= 100))) : ''}
+                        ${col.edm ? (row.isNewPlayer || row.hasLeft ? `<td>-</td>` : editableCellHtml(row, 'edmDiff', row.edmDiff, `${row.edmDiff.toLocaleString()}${trendByPrevious(row, 'edmDiff')}`)) : ''}
+                        ${col.troopsLost ? (row.isNewPlayer || row.hasLeft ? `<td>-</td>` : editableCellHtml(row, 'troopsLostDiff', row.troopsLostDiff, `${row.troopsLostDiff.toLocaleString()}${trendByPrevious(row, 'troopsLostDiff')}`)) : ''}
+                        ${col.hunt ? editableCellHtml(row, 'huntPoints', row.huntPoints, formatDiff2(row.huntPoints, row.huntPercentage, row.huntPercentage >= 100)) : ''}
+                        ${col.purchase ? editableCellHtml(row, 'purchasePoints', row.purchasePoints, `${row.purchasePoints.toLocaleString()}${trendByPrevious(row, 'purchasePoints')}`) : ''}
                         ${col.history ? `${createHistoryCells(row.history)}` : ''}
                     </tr>`;
             };
@@ -1084,6 +1219,7 @@
             table += `</tbody></table>`;
             reportTable.innerHTML = table;
             bindSortHandlers();
+            bindInlineEditHandlers();
 
             showTopPerformers(data.topPerformers, ignored);
             if (isDataInsightsEnabled()) {
