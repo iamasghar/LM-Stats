@@ -429,6 +429,32 @@
             }).format(Number(value || 0));
         }
 
+        function formatMetricNormalized(value) {
+            const n = Number(value || 0);
+            if (!Number.isFinite(n)) return '0';
+            if (n === 0) return '0';
+
+            const sign = n < 0 ? '-' : '';
+            const abs = Math.abs(n);
+            const useBillions = abs >= 1000000000;
+            const scale = useBillions ? 1000000000 : 1000000;
+            const suffix = useBillions ? 'b' : 'M';
+            const rounded = Math.round((abs / scale) * 100) / 100;
+            const text = Number.isInteger(rounded)
+                ? String(rounded)
+                : rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+
+            return `${sign}${text}${suffix}`;
+        }
+
+        function formatKillsNormalized(value) {
+            return formatMetricNormalized(value);
+        }
+
+        function formatMightNormalized(value) {
+            return formatMetricNormalized(value);
+        }
+
         function trendClass(value, invert = false) {
             const normalized = invert ? -Number(value || 0) : Number(value || 0);
             if (normalized > 0) return 'trend-up';
@@ -571,9 +597,11 @@
             if (huntChart) { huntChart.destroy(); huntChart = null; }
         }
 
-        function createMiniChart(canvasId, labels, data, lineColor, fillColor) {
+        function createMiniChart(canvasId, labels, data, lineColor, fillColor, valueFormatter) {
             const ctx = document.getElementById(canvasId);
             if (!ctx) return null;
+
+            const formatter = typeof valueFormatter === 'function' ? valueFormatter : formatNumber;
 
             return new Chart(ctx, {
                 type: 'line',
@@ -603,7 +631,7 @@
                             bodyColor: '#e2e8f0',
                             callbacks: {
                                 label: function(context) {
-                                    return ` ${formatNumber(context.parsed.y)}`;
+                                    return ` ${formatter(context.parsed.y)}`;
                                 }
                             }
                         }
@@ -618,7 +646,7 @@
                             ticks: {
                                 color: '#475569',
                                 callback: function(value) {
-                                    return formatCompact(value);
+                                    return formatter(value);
                                 }
                             }
                         }
@@ -650,16 +678,16 @@
             const metrics = [
                 {
                     label: 'Might Diff',
-                    value: formatNumber(p.mightDiff),
+                    value: formatMightNormalized(p.mightDiff),
                     trendValue: 0,
                     trendLabel: 'Reference',
                     hint: 'Weekly Might delta (not a goal metric)'
                 },
                 {
                     label: 'Kills',
-                    value: formatNumber(p.kills),
+                    value: formatKillsNormalized(p.kills),
                     trendValue: p.killsDiff,
-                    trendLabel: `${Number(p.killsDiff || 0) >= 0 ? '+' : ''}${formatNumber(p.killsDiff)} (${Math.round(p.killsPercentage || 0)}%)`,
+                    trendLabel: `${Number(p.killsDiff || 0) >= 0 ? '+' : ''}${formatKillsNormalized(p.killsDiff)} (${Math.round(p.killsPercentage || 0)}%)`,
                     hint: 'Weekly delta'
                 },
                 {
@@ -686,15 +714,15 @@
                     <tbody>
                         <tr>
                             <td>Might Diff</td>
-                            <td>${formatNumber(p.mightDiff)}</td>
-                            <td><span class="${trendClass(p.mightDiff)}">${trendArrow(p.mightDiff)} ${Number(p.mightDiff || 0) >= 0 ? '+' : ''}${formatNumber(p.mightDiff)}</span></td>
+                            <td>${formatMightNormalized(p.mightDiff)}</td>
+                            <td><span class="${trendClass(p.mightDiff)}">${trendArrow(p.mightDiff)} ${Number(p.mightDiff || 0) >= 0 ? '+' : ''}${formatMightNormalized(p.mightDiff)}</span></td>
                             <td><span class="detail-pill pill-watch">Reference</span></td>
                             <td>Weekly Might change (reference only)</td>
                         </tr>
                         <tr>
                             <td>Kills</td>
-                            <td>${formatNumber(p.kills)}</td>
-                            <td><span class="${trendClass(p.killsDiff)}">${trendArrow(p.killsDiff)} ${Number(p.killsDiff || 0) >= 0 ? '+' : ''}${formatNumber(p.killsDiff)}</span></td>
+                            <td>${formatKillsNormalized(p.kills)}</td>
+                            <td><span class="${trendClass(p.killsDiff)}">${trendArrow(p.killsDiff)} ${Number(p.killsDiff || 0) >= 0 ? '+' : ''}${formatKillsNormalized(p.killsDiff)}</span></td>
                             <td>${progressPill(p.killsPercentage)}</td>
                             <td>${Math.round(p.killsPercentage || 0)}% against weekly target</td>
                         </tr>
@@ -727,8 +755,8 @@
                     <tbody>
                         ${history.map(h => `<tr class="${hzoneClass(h.zone)}">
                             <td>${h.fromDate} - ${h.toDate}</td>
-                            <td>${formatNumber(h.mightDiff)}</td>
-                            <td>${formatNumber(h.killsDiff)} <span class="${pctColor(h.killsPercentage)}">(${Math.round(h.killsPercentage || 0)}%)</span></td>
+                            <td>${formatMightNormalized(h.mightDiff)}</td>
+                            <td>${formatKillsNormalized(h.killsDiff)} <span class="${pctColor(h.killsPercentage)}">(${Math.round(h.killsPercentage || 0)}%)</span></td>
                             <td>${formatNumber(h.huntPoints)} <span class="${pctColor(h.huntPercentage)}">(${Math.round(h.huntPercentage || 0)}%)</span></td>
                             <td style="text-align:center">${zoneDot(h.zone)}</td>
                         </tr>`).join('')}
@@ -744,9 +772,9 @@
             if (killsChart) killsChart.destroy();
             if (huntChart) huntChart.destroy();
 
-            mightChart = createMiniChart('mightChart', labels, mightSeries, '#0b6ef3', 'rgba(11, 110, 243, 0.14)');
-            killsChart = createMiniChart('killsChart', labels, killsSeries, '#f43f5e', 'rgba(244, 63, 94, 0.12)');
-            huntChart = createMiniChart('huntChart', labels, huntSeries, '#f59e0b', 'rgba(245, 158, 11, 0.16)');
+            mightChart = createMiniChart('mightChart', labels, mightSeries, '#0b6ef3', 'rgba(11, 110, 243, 0.14)', formatMightNormalized);
+            killsChart = createMiniChart('killsChart', labels, killsSeries, '#f43f5e', 'rgba(244, 63, 94, 0.12)', formatKillsNormalized);
+            huntChart = createMiniChart('huntChart', labels, huntSeries, '#f59e0b', 'rgba(245, 158, 11, 0.16)', formatCompact);
         }
 
         async function exportPlayerJpg() {

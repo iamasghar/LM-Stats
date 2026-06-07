@@ -12,6 +12,14 @@ namespace LM.Stats.Controllers;
 
 public class ReportController : Controller
 {
+    public sealed class UpdateConfigSettingsRequest
+    {
+        public decimal HuntGoal { get; set; }
+        public decimal PurchaseGoal { get; set; }
+        public decimal KillsGoal { get; set; }
+        public List<string>? SkipInReport { get; set; }
+    }
+
     public sealed class UpdateReportValueRequest
     {
         public string Week { get; set; } = string.Empty;
@@ -55,6 +63,78 @@ public class ReportController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> GetConfigSettings()
+    {
+        var keys = new[] { "HuntGoal", "PurchaseGoal", "KillsGoal", "SkipInReport" };
+        var configs = await _context.Configs
+            .AsNoTracking()
+            .Where(c => keys.Contains(c.Key))
+            .ToDictionaryAsync(c => c.Key, c => c.Value ?? string.Empty);
+
+        var huntGoal = configs.TryGetValue("HuntGoal", out var huntValue) ? (huntValue.ToSafeDecimal() ?? 0m) : 0m;
+        var purchaseGoal = configs.TryGetValue("PurchaseGoal", out var purchaseValue) ? (purchaseValue.ToSafeDecimal() ?? 0m) : 0m;
+        var killsGoal = configs.TryGetValue("KillsGoal", out var killsValue) ? (killsValue.ToSafeDecimal() ?? 0m) : 0m;
+        var skipInReport = configs.TryGetValue("SkipInReport", out var skipValue)
+            ? skipValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x)
+                .ToList()
+            : new List<string>();
+
+        return Json(new
+        {
+            huntGoal,
+            purchaseGoal,
+            killsGoal,
+            skipInReport
+        });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateConfigSettings([FromBody] UpdateConfigSettingsRequest request)
+    {
+        if (request is null)
+        {
+            return Json(new { success = false, message = "Settings request is invalid." });
+        }
+
+        if (request.HuntGoal < 0 || request.PurchaseGoal < 0 || request.KillsGoal < 0)
+        {
+            return Json(new { success = false, message = "Goal values cannot be negative." });
+        }
+
+        var cleanedSkip = (request.SkipInReport ?? new List<string>())
+            .Select(x => (x ?? string.Empty).Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+
+        var skipCsv = string.Join(',', cleanedSkip);
+
+        await UpsertConfigValueAsync("HuntGoal", request.HuntGoal.ToString("0"));
+        await UpsertConfigValueAsync("PurchaseGoal", request.PurchaseGoal.ToString("0"));
+        await UpsertConfigValueAsync("KillsGoal", request.KillsGoal.ToString("0"));
+        await UpsertConfigValueAsync("SkipInReport", skipCsv);
+
+        await _context.SaveChangesAsync();
+
+        return Json(new
+        {
+            success = true,
+            message = "Configuration updated successfully.",
+            data = new
+            {
+                huntGoal = request.HuntGoal,
+                purchaseGoal = request.PurchaseGoal,
+                killsGoal = request.KillsGoal,
+                skipInReport = cleanedSkip
+            }
+        });
+    }
+
+    [HttpGet]
     public async Task<IActionResult> GetUploadedReports()
     {
         var reports = await _context.Stats
@@ -71,6 +151,22 @@ public class ReportController : Controller
             .ToListAsync();
 
         return Json(reports);
+    }
+
+    private async Task UpsertConfigValueAsync(string key, string value)
+    {
+        var row = await _context.Configs.FirstOrDefaultAsync(c => c.Key == key);
+        if (row == null)
+        {
+            _context.Configs.Add(new Config
+            {
+                Key = key,
+                Value = value
+            });
+            return;
+        }
+
+        row.Value = value;
     }
 
     [HttpPost]
@@ -114,6 +210,8 @@ public class ReportController : Controller
             .FirstOrDefaultAsync(s => s.UniqueIdentifier == week);
 
         var usersToSkip = _context.Configs.FirstOrDefault(c => c.Key == "SkipInReport")?.Value?.Split(',');
+        var killsGoal = _context.Configs.FirstOrDefault(c => c.Key == "KillsGoal")?.Value.ToSafeDecimal() ?? 0m;
+        var huntGoal = _context.Configs.FirstOrDefault(c => c.Key == "HuntGoal")?.Value.ToSafeDecimal() ?? 0m;
 
         if (stats == null)
         {
@@ -224,6 +322,11 @@ public class ReportController : Controller
         return Json(new
         {
             week,
+            goals = new
+            {
+                kills = killsGoal,
+                hunt = huntGoal
+            },
             weeksToShow,
             completedBoth,
             completedOne,

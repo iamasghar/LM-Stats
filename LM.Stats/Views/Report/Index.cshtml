@@ -134,6 +134,47 @@
         border: 0;
         display: block;
     }
+    .report-instructions {
+        width: 100%;
+        border: 1px solid #dbe4f0;
+        background: #f8fbff;
+        border-radius: 10px;
+        padding: 0.7rem 0.9rem;
+        font-size: 0.82rem;
+        line-height: 1.35;
+        color: #334155;
+    }
+    .report-instructions h6 {
+        margin: 0 0 0.4rem;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #1e3a8a;
+    }
+    .report-instructions p {
+        margin: 0.2rem 0;
+    }
+    .report-instructions ul {
+        margin: 0.25rem 0 0.35rem;
+        padding: 0;
+    }
+    .report-instructions li {
+        margin: 0.06rem 0;
+    }
+    .instruction-inline-list {
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 0.55rem;
+        align-items: center;
+    }
+    .instruction-inline-list li {
+        margin: 0;
+        padding: 0.14rem 0.45rem;
+        border: 1px solid #d8e2f2;
+        border-radius: 999px;
+        background: #ffffff;
+        line-height: 1.2;
+    }
     .editable-cell {
         cursor: text;
         position: relative;
@@ -309,6 +350,26 @@
             <div class="d-flex align-items-center"><span class="heatmap-cell new me-2"></span> New Player</div>
             <div class="d-flex align-items-center"><span class="heatmap-cell left me-2"></span> Left Player</div>
         </div>
+    </div>
+
+    <div class="report-instructions mb-3">
+        <h6>Rules & Instructions</h6>
+
+        <p><strong>Hunting points breakdown:</strong></p>
+        <ul class="instruction-inline-list">
+            <li><strong>L1:</strong> 0 pts</li>
+            <li><strong>L2:</strong> 1 pts</li>
+            <li><strong>L3:</strong> 3 pts</li>
+            <li><strong>L4:</strong> 9 pts</li>
+            <li><strong>L5:</strong> 18 pts</li>
+        </ul>
+
+        <p><strong>Goal:</strong> <strong>Kills:</strong> <span id="killsGoalValue">-</span>, <strong>Hunt:</strong> <span id="huntGoalValue">-</span>.</p>
+        <p><strong>Important:</strong> Anonymous gifts are not counted. Turn off Anonymous before hunting or purchasing so your contribution can be tracked.</p>
+        <p><strong>Weekly reset:</strong> Hunting points reset every Sunday at the in-game pack reset time.</p>
+        <p><strong>Check your stats:</strong> Mail <strong>Shadsome</strong> with command <strong>.stats</strong>.</p>
+        <p><strong>How to read History:</strong> The History column shows your recent progress and older weeks from latest to oldest. The color meaning is the same as the legend shown above.</p>
+        <p><strong>Found an issue?</strong> If you see a wrong value or miscalculation, report it so it can be checked and corrected.</p>
     </div>
 </div>
 
@@ -518,6 +579,58 @@
                     });
                 });
             });
+        }
+
+        function formatCompactNumber(value) {
+            const n = Number(value || 0);
+            if (!Number.isFinite(n)) return '-';
+            return new Intl.NumberFormat('en-US', {
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(n);
+        }
+
+        function formatMetricNormalized(value) {
+            const n = Number(value || 0);
+            if (!Number.isFinite(n)) return '0';
+            if (n === 0) return '0';
+
+            const sign = n < 0 ? '-' : '';
+            const abs = Math.abs(n);
+            const useBillions = abs >= 1000000000;
+            const scale = useBillions ? 1000000000 : 1000000;
+            const suffix = useBillions ? 'b' : 'M';
+            const rounded = Math.round((abs / scale) * 100) / 100;
+            const text = Number.isInteger(rounded)
+                ? String(rounded)
+                : rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+
+            return `${sign}${text}${suffix}`;
+        }
+
+        function formatKillsNormalized(value) {
+            return formatMetricNormalized(value);
+        }
+
+        function formatMightNormalized(value) {
+            return formatMetricNormalized(value);
+        }
+
+        function renderInstructionGoals(data) {
+            const killsEl = document.getElementById('killsGoalValue');
+            const huntEl = document.getElementById('huntGoalValue');
+            if (!killsEl || !huntEl) return;
+
+            const killsGoal = Number(data?.goals?.kills || 0);
+            const huntGoal = Number(data?.goals?.hunt || 0);
+
+            killsEl.textContent = killsGoal > 0
+                ? `${formatKillsNormalized(killsGoal)} (${Math.round(killsGoal).toLocaleString()})`
+                : '-';
+
+            huntEl.textContent = huntGoal > 0
+                ? `${Math.round(huntGoal).toLocaleString()} points`
+                : '-';
         }
 
         function bindInlineEditHandlers() {
@@ -1099,6 +1212,8 @@
             reportTable.innerHTML = '';
             if (!data) return;
 
+            renderInstructionGoals(data);
+
             weeksToShow = data.weeksToShow;
             const col = getColumnVisibility();
             const ignored = getIgnoredPlayerSet();
@@ -1194,7 +1309,7 @@
                 const formatDiff = (value, percentage, isGood) => {
                     if (row.isNewPlayer || row.hasLeft) return '-';
                     const trendHtml = trendByPrevious(row, 'killsDiff');
-                    return `${value.toLocaleString()} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>${trendHtml}`;
+                    return `${formatKillsNormalized(value)} <span class="${isGood ? 'highlight-green' : 'highlight-red'}">&nbsp;(${formatPercentage(percentage)})</span>${trendHtml}`;
                 };
                 const formatDiff2 = (value, percentage, isGood) => {
                     const trendHtml = trendByPrevious(row, 'huntPoints');
@@ -1255,7 +1370,7 @@
 
             const cards = [
                 { label: 'Total Players', value: allRows.length, color: 'primary' },
-                { label: 'Total Kills (Week)', value: totalKills.toLocaleString(), color: 'success' },
+                { label: 'Total Kills (Week)', value: formatKillsNormalized(totalKills), color: 'success' },
                 { label: 'Total Hunt Pts', value: totalHunt.toLocaleString(), color: 'info' },
                 { label: 'Green / Yellow / Red', value: `${greenCount} / ${yellowCount} / ${redCount}`, color: 'secondary' }
             ];
@@ -1280,7 +1395,11 @@
                 if (items.length === 0) return;
                 const col = document.createElement('div');
                 col.className = 'col-12 col-md-6 col-lg-3';
-                const rowsHtml = items.map((item, idx) => `<tr><td>${idx+1}</td><td>${item.name}</td><td class="text-end fw-bold">${(item[cat.valueField]||0).toLocaleString()} <small class="text-muted">${cat.suffix}</small></td></tr>`).join('');
+                const rowsHtml = items.map((item, idx) => {
+                    const rawValue = item[cat.valueField] || 0;
+                    const formattedValue = cat.key === 'topKills' ? formatKillsNormalized(rawValue) : Number(rawValue).toLocaleString();
+                    return `<tr><td>${idx+1}</td><td>${item.name}</td><td class="text-end fw-bold">${formattedValue} <small class="text-muted">${cat.suffix}</small></td></tr>`;
+                }).join('');
                 col.innerHTML = `<div class="card h-100"><div class="card-header fw-semibold">${cat.title}</div><div class="card-body p-0"><table class="table table-sm table-hover mb-0"><tbody>${rowsHtml}</tbody></table></div></div>`;
                 container.appendChild(col);
             });
@@ -1329,6 +1448,10 @@
             exportRoot.appendChild(tableClone);
             exportRoot.appendChild(document.getElementById('heatmapLegend').cloneNode(true));
             exportRoot.appendChild(document.getElementById('topPerformers').cloneNode(true));
+            const instructions = document.querySelector('.report-instructions');
+            if (instructions) {
+                exportRoot.appendChild(instructions.cloneNode(true));
+            }
             document.body.appendChild(exportRoot);
 
             const canvas = await html2canvas(exportRoot, { scale: 3, backgroundColor: '#ffffff', useCORS: true });
@@ -1351,7 +1474,7 @@
             const { jsPDF } = window.jspdf;
             const rowCount = reportTable.querySelectorAll('tbody tr').length;
             const summaryRows = Math.ceil(getSelectedSummaryCategories().length / 2);
-            const estimatedHeight = Math.max(297, 130 + (isDataInsightsEnabled() ? 16 : 0) + (rowCount * 6) + (summaryRows * 45));
+            const estimatedHeight = Math.max(297, 230 + (isDataInsightsEnabled() ? 16 : 0) + (rowCount * 6) + (summaryRows * 45));
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [210, estimatedHeight] });
             const ignored = getIgnoredPlayerSet();
 
@@ -1379,7 +1502,7 @@
             doc.setFont(undefined, 'normal');
 
             const headers = Array.from(reportTable.querySelectorAll('thead th')).map(th => th.innerText);
-            const historyColumnIndex = headers.indexOf('History');
+            const historyColumnIndex = headers.findIndex(header => (header || '').trim().startsWith('History'));
             const rows = [];
 
             Array.from(reportTable.querySelectorAll('tbody tr')).forEach(row => {
@@ -1419,7 +1542,7 @@
                 doc.setFontSize(8.5);
                 doc.setTextColor(...STYLE.colors.textDark);
                 doc.text(`Total Players: ${allRows.length}`, 17, insightsY + 6.5);
-                doc.text(`Total Kills: ${totalKills.toLocaleString()}`, 58, insightsY + 6.5);
+                doc.text(`Total Kills: ${formatKillsNormalized(totalKills)}`, 58, insightsY + 6.5);
                 doc.text(`Total Hunt Pts: ${totalHunt.toLocaleString()}`, 99, insightsY + 6.5);
                 doc.text(`Green/Yellow/Red: ${greenCount}/${yellowCount}/${redCount}`, 142, insightsY + 6.5);
                 tableStartY = 31;
@@ -1495,6 +1618,8 @@
                 xLegend += doc.getTextWidth(item.label) + 10;
             });
 
+            let finalContentY = legendY + 14;
+
             if (allData.topPerformers) {
                 const pageHeight = doc.internal.pageSize.getHeight();
                 const cardWidth = STYLE.card.width;
@@ -1504,6 +1629,7 @@
                 let col = 0;
 
                 const categories = getSelectedSummaryCategories().map(c => ({
+                    key: c.key,
                     title: c.title,
                     items: (allData.topPerformers[c.key] || []).filter(i => !ignored.has((i.name || '').toLowerCase())).slice(0, 3),
                     valueField: c.valueField,
@@ -1537,9 +1663,13 @@
 
                     category.items.forEach((item, itemIndex) => {
                         const itemY = yPos + STYLE.card.padding + 10 + (itemIndex * 6);
+                        const rawValue = item[category.valueField] || 0;
+                        const formattedValue = category.key === 'topKills'
+                            ? formatKillsNormalized(rawValue)
+                            : Number(rawValue).toLocaleString();
                         doc.setFontSize(9);
                         doc.text(`${itemIndex + 1}. ${item.name}`, xPos + STYLE.card.padding + 5, itemY);
-                        doc.text(`${item[category.valueField].toLocaleString()} ${category.suffix}`, xPos + cardWidth - STYLE.card.padding - 5, itemY, { align: 'right' });
+                        doc.text(`${formattedValue} ${category.suffix}`, xPos + cardWidth - STYLE.card.padding - 5, itemY, { align: 'right' });
                     });
 
                     col++;
@@ -1548,6 +1678,147 @@
                         yPos += cardHeight + cardGap;
                     }
                 });
+
+                finalContentY = col === 0 ? yPos : (yPos + cardHeight + cardGap);
+            }
+
+            const instructionsBlock = document.querySelector('.report-instructions');
+            if (instructionsBlock) {
+                const title = instructionsBlock.querySelector('h6')?.innerText?.trim() || '';
+                const paragraphLines = Array.from(instructionsBlock.querySelectorAll('p'))
+                    .map(p => p.innerText?.trim())
+                    .filter(Boolean);
+                const inlineItems = Array.from(instructionsBlock.querySelectorAll('li'))
+                    .map(li => li.innerText?.trim())
+                    .filter(Boolean);
+                const breakdownHeading = paragraphLines.find(line => line.toLowerCase().startsWith('hunting points breakdown')) || '';
+                const contentParagraphs = paragraphLines.filter(line => line !== breakdownHeading);
+
+                const getParagraphWrapInfo = (text, width) => {
+                    const match = text.match(/^([^:]+:\s*)(.*)$/);
+                    if (!match) {
+                        const lines = doc.splitTextToSize(text, width);
+                        return { lines, lineCount: lines.length, label: '', firstLineRemainder: [] };
+                    }
+
+                    const label = match[1];
+                    const remainder = match[2] || '';
+                    doc.setFont(undefined, 'bold');
+                    const labelWidth = doc.getTextWidth(label);
+                    doc.setFont(undefined, 'normal');
+
+                    const firstLineWidth = Math.max(12, width - labelWidth);
+                    const remainderLines = remainder
+                        ? doc.splitTextToSize(remainder, firstLineWidth)
+                        : [];
+
+                    const lineCount = 1 + Math.max(0, remainderLines.length - 1);
+                    return { label, remainderLines, lineCount };
+                };
+
+                const lineHeight = 4;
+                const boxPadding = 3;
+                const pillHeight = inlineItems.length > 0 ? 5.2 : 0;
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const maxTextWidth = doc.internal.pageSize.getWidth() - 34;
+                doc.setFontSize(8);
+                const wrappedBreakdownHeading = breakdownHeading ? getParagraphWrapInfo(breakdownHeading, maxTextWidth) : null;
+                const wrappedParagraphs = contentParagraphs.map(line => getParagraphWrapInfo(line, maxTextWidth));
+                const titleHeight = title ? 5 : 0;
+                const breakdownHeadingHeight = wrappedBreakdownHeading ? (wrappedBreakdownHeading.lineCount * lineHeight) : 0;
+                const paragraphsHeight = wrappedParagraphs.reduce((sum, info) => sum + (info.lineCount * lineHeight), 0);
+                const breakdownBlockGap = wrappedBreakdownHeading && inlineItems.length > 0 ? 1.4 : 0;
+                const boxHeight = boxPadding + titleHeight + breakdownHeadingHeight + breakdownBlockGap + pillHeight + paragraphsHeight + boxPadding;
+                let startY = finalContentY + 6;
+
+                if (startY + boxHeight > pageHeight - 10) {
+                    doc.addPage();
+                    startY = 18;
+                }
+
+                doc.setFillColor(...STYLE.colors.legendBg);
+                doc.rect(14, startY, doc.internal.pageSize.getWidth() - 28, boxHeight, 'F');
+                doc.setDrawColor(...STYLE.colors.border);
+                doc.rect(14, startY, doc.internal.pageSize.getWidth() - 28, boxHeight, 'S');
+
+                let y = startY + boxPadding + 2.5;
+                doc.setTextColor(...STYLE.colors.textDark);
+
+                if (title) {
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(title, 17, y);
+                    y += 5;
+                }
+
+                if (wrappedBreakdownHeading) {
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(wrappedBreakdownHeading.label || breakdownHeading, 17, y);
+
+                    doc.setFont(undefined, 'normal');
+                    if (wrappedBreakdownHeading.remainderLines && wrappedBreakdownHeading.remainderLines.length > 0) {
+                        const labelGap = 1.5;
+                        doc.text(wrappedBreakdownHeading.remainderLines[0], 17 + doc.getTextWidth(wrappedBreakdownHeading.label) + labelGap, y);
+                        y += lineHeight;
+                        wrappedBreakdownHeading.remainderLines.slice(1).forEach(line => {
+                            doc.text(line, 17, y);
+                            y += lineHeight;
+                        });
+                    } else {
+                        y += lineHeight;
+                    }
+                }
+
+                if (inlineItems.length > 0) {
+                    let x = 17;
+                    const availableRight = doc.internal.pageSize.getWidth() - 17;
+                    doc.setFontSize(7.5);
+                    doc.setFont(undefined, 'normal');
+                    inlineItems.forEach(item => {
+                        const pillWidth = doc.getTextWidth(item) + 4.5;
+                        if (x + pillWidth > availableRight) {
+                            x = 17;
+                            y += 4.8;
+                        }
+                        doc.setFillColor(255, 255, 255);
+                        doc.setDrawColor(...STYLE.colors.border);
+                        doc.roundedRect(x, y - 3, pillWidth, 4.8, 1.5, 1.5, 'FD');
+                        doc.text(item, x + 2.2, y);
+                        x += pillWidth + 2.2;
+                    });
+                    y += 5.4;
+                }
+
+                doc.setFontSize(8);
+                wrappedParagraphs.forEach(info => {
+                    if (!info.label) {
+                        doc.setFont(undefined, 'normal');
+                        (info.lines || []).forEach(line => {
+                            doc.text(line, 17, y);
+                            y += lineHeight;
+                        });
+                        return;
+                    }
+
+                    doc.setFont(undefined, 'bold');
+                    doc.text(info.label, 17, y);
+
+                    doc.setFont(undefined, 'normal');
+                    if (info.remainderLines && info.remainderLines.length > 0) {
+                        const labelGap = 1.5;
+                        doc.text(info.remainderLines[0], 17 + doc.getTextWidth(info.label) + labelGap, y);
+                        y += lineHeight;
+                        info.remainderLines.slice(1).forEach(line => {
+                            doc.text(line, 17, y);
+                            y += lineHeight;
+                        });
+                    } else {
+                        y += lineHeight;
+                    }
+                });
+
+                doc.setFont(undefined, 'normal');
             }
 
             const dateRange = selectedWeek.replace(/ /g, '_').replace(/-/g, '');

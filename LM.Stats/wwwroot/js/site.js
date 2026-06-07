@@ -3,6 +3,8 @@
     const confirmBackupModal = new bootstrap.Modal(document.getElementById('confirmBackupModal'));
     const confirmSyncModal = new bootstrap.Modal(document.getElementById('confirmSyncModal'));
     const rollbackModal = new bootstrap.Modal(document.getElementById('rollbackModal'));
+    const configSettingsModalEl = document.getElementById('configSettingsModal');
+    const configSettingsModal = configSettingsModalEl ? new bootstrap.Modal(configSettingsModalEl) : null;
 
     const $huntFile = $('#huntFileInput');
     const $killsFile = $('#killsFileInput');
@@ -11,7 +13,181 @@
     const $submitImport = $('#submitImport');
     const $status = $('#fileValidationStatus');
     const $rollbackDropdown = $('#rollbackReportDropdown');
+    const $cfgHuntGoal = $('#cfgHuntGoal');
+    const $cfgPurchaseGoal = $('#cfgPurchaseGoal');
+    const $cfgKillsGoal = $('#cfgKillsGoal');
+    const $cfgSkipInput = $('#cfgSkipInReportInput');
+    const $cfgStatus = $('#configSettingsStatus');
     let isImportSubmitting = false;
+    let isConfigSaving = false;
+    let cfgSkipTomSelect = null;
+
+    function setConfigStatus(message, type, isLoading) {
+        if (!$cfgStatus.length) return;
+        if (!message) {
+            $cfgStatus.addClass('d-none').removeClass('alert-secondary alert-success alert-danger').html('');
+            return;
+        }
+
+        $cfgStatus
+            .removeClass('d-none alert-secondary alert-success alert-danger')
+            .addClass(`alert-${type}`)
+            .html(isLoading
+                ? `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${message}`
+                : message);
+    }
+
+    function ensureConfigSkipSelector() {
+        if (!$cfgSkipInput.length || typeof TomSelect === 'undefined') return null;
+        if (cfgSkipTomSelect) return cfgSkipTomSelect;
+
+        cfgSkipTomSelect = new TomSelect('#cfgSkipInReportInput', {
+            plugins: {
+                remove_button: { title: 'Remove' }
+            },
+            create: true,
+            createOnBlur: true,
+            persist: false,
+            maxOptions: 5000,
+            delimiter: ',',
+            hidePlaceholder: false,
+            placeholder: 'Type player name and press Enter',
+            onItemAdd: function(value) {
+                const normalized = String(value || '').trim();
+                if (!normalized) return;
+
+                if (normalized !== value) {
+                    this.removeItem(value, true);
+                    this.addOption({ value: normalized, text: normalized });
+                    this.addItem(normalized, true);
+                    return;
+                }
+
+                this.addOption({ value: normalized, text: normalized });
+                const duplicates = this.items.filter(x => x.toLowerCase() === normalized.toLowerCase());
+                if (duplicates.length > 1) {
+                    this.removeItem(value, true);
+                }
+            }
+        });
+
+        return cfgSkipTomSelect;
+    }
+
+    async function hydratePlayerSuggestions() {
+        const selector = ensureConfigSkipSelector();
+        if (!selector) return;
+
+        try {
+            const resp = await fetch('/Report/SearchPlayers?term=&take=5000');
+            if (!resp.ok) return;
+            const names = await resp.json();
+            if (!Array.isArray(names)) return;
+
+            selector.clearOptions();
+            names
+                .filter(x => typeof x === 'string' && x.trim().length > 0)
+                .forEach(name => {
+                    const cleaned = String(name).trim();
+                    selector.addOption({ value: cleaned, text: cleaned });
+                });
+            selector.refreshOptions(false);
+        } catch {
+            // Ignore suggestion fetch failures.
+        }
+    }
+
+    async function loadConfigSettings() {
+        setConfigStatus('Loading configuration...', 'secondary', true);
+
+        try {
+            const response = await fetch('/Report/GetConfigSettings');
+            if (!response.ok) {
+                setConfigStatus('Failed to load configuration.', 'danger', false);
+                return;
+            }
+
+            const cfg = await response.json();
+            $cfgHuntGoal.val(Number(cfg.huntGoal || 0));
+            $cfgPurchaseGoal.val(Number(cfg.purchaseGoal || 0));
+            $cfgKillsGoal.val(Number(cfg.killsGoal || 0));
+
+            const selector = ensureConfigSkipSelector();
+            if (selector) {
+                selector.clear(true);
+                const loaded = Array.isArray(cfg.skipInReport) ? cfg.skipInReport : [];
+                loaded.forEach(name => {
+                    const cleaned = String(name || '').trim();
+                    if (!cleaned) return;
+                    selector.addOption({ value: cleaned, text: cleaned });
+                    selector.addItem(cleaned, true);
+                });
+            }
+            setConfigStatus('', 'secondary', false);
+        } catch {
+            setConfigStatus('Failed to load configuration.', 'danger', false);
+        }
+    }
+
+    async function saveConfigSettings() {
+        if (isConfigSaving) return;
+
+        const huntGoal = Number($cfgHuntGoal.val() || 0);
+        const purchaseGoal = Number($cfgPurchaseGoal.val() || 0);
+        const killsGoal = Number($cfgKillsGoal.val() || 0);
+
+        if (huntGoal < 0 || purchaseGoal < 0 || killsGoal < 0) {
+            setConfigStatus('Goals must be zero or positive values.', 'danger', false);
+            return;
+        }
+
+        isConfigSaving = true;
+        setButtonLoading('#saveConfigSettingsBtn', true, 'Saving...', 'Save Settings');
+        setConfigStatus('Saving configuration...', 'secondary', true);
+
+        try {
+            const selector = ensureConfigSkipSelector();
+            const skipInReport = selector
+                ? Array.from(new Set((selector.items || [])
+                    .map(x => String(x || '').trim())
+                    .filter(Boolean)
+                    .map(x => x.toLowerCase())))
+                    .map(lower => (selector.items || []).find(x => String(x || '').trim().toLowerCase() === lower))
+                : [];
+
+            const response = await fetch('/Report/UpdateConfigSettings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    huntGoal,
+                    purchaseGoal,
+                    killsGoal,
+                    skipInReport
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                setConfigStatus(result.message || 'Failed to save configuration.', 'danger', false);
+                return;
+            }
+
+            setConfigStatus(result.message || 'Configuration updated successfully.', 'success', false);
+            showAlert(result.message || 'Configuration updated successfully.', 'success');
+            if (configSettingsModal) {
+                configSettingsModal.hide();
+            }
+
+            if (typeof window.generateReport === 'function') {
+                window.generateReport();
+            }
+        } catch {
+            setConfigStatus('Failed to save configuration.', 'danger', false);
+        } finally {
+            isConfigSaving = false;
+            setButtonLoading('#saveConfigSettingsBtn', false, '', 'Save Settings');
+        }
+    }
 
     $dateRange.daterangepicker({
         parentEl: '#importModal',
@@ -163,6 +339,18 @@
     $('#rollbackBtn').click(function() {
         rollbackModal.show();
         loadRollbackReports();
+    });
+
+    $('#configSettingsBtn').click(async function() {
+        if (!configSettingsModal) return;
+        ensureConfigSkipSelector();
+        configSettingsModal.show();
+        await hydratePlayerSuggestions();
+        await loadConfigSettings();
+    });
+
+    $('#saveConfigSettingsBtn').click(function() {
+        saveConfigSettings();
     });
 
     $huntFile.on('change', validateSelectedFiles);
