@@ -780,11 +780,11 @@
         async function exportPlayerJpg() {
             const area = document.getElementById('playerReportArea');
             if (!area || area.style.display === 'none') return;
-            const canvas = await html2canvas(area, { scale: 3, backgroundColor: '#f8fbff' });
+            const canvas = await html2canvas(area, { scale: 2, backgroundColor: '#f8fbff' });
             const a = document.createElement('a');
             const n = (((playerSelector ? playerSelector.getValue() : document.getElementById('playerInput').value) || 'player')).replace(/\s+/g, '_');
             a.download = `${n}_detail.jpg`;
-            a.href = canvas.toDataURL('image/jpeg', 0.98);
+            a.href = canvas.toDataURL('image/jpeg', 0.9);
             a.click();
         }
 
